@@ -1,0 +1,7 @@
+﻿target/
+*.log
+.DS_Store
+.idea/
+*.iml
+.gradle/
+build/

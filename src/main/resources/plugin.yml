@@ -1,0 +1,145 @@
+name: AnimeSMP
+main: com.animesmp.core.AnimeSMPPlugin
+version: 1.0.0
+api-version: '1.21'
+author: "Qurvo"
+softdepend:
+  - ProtocolLib
+
+commands:
+  # Core player info / progression
+  stats:
+    description: View your stats.
+    usage: /stats
+
+  skills:
+    description: Allocate skill points.
+    usage: /skills
+
+  abilities:
+    description: View your unlocked abilities.
+    usage: /abilities
+
+  # Ability binding + casting system
+  bind:
+    description: Bind abilities to slots 1–5.
+    usage: /bind <slot> <abilityId>
+
+  cast1:
+    description: Cast the ability bound to slot 1.
+    usage: /cast1
+  cast2:
+    description: Cast the ability bound to slot 2.
+    usage: /cast2
+  cast3:
+    description: Cast the ability bound to slot 3.
+    usage: /cast3
+  cast4:
+    description: Cast the ability bound to slot 4.
+    usage: /cast4
+  cast5:
+    description: Cast the ability bound to slot 5.
+    usage: /cast5
+
+  cyclenext:
+    description: Cycle to the next bound ability slot.
+    usage: /cyclenext
+  cycleprevious:
+    description: Cycle to the previous bound ability slot.
+    usage: /cycleprevious
+  castselected:
+    description: Cast the currently selected (cycled) ability.
+    usage: /castselected
+
+  # Training & vendors (player-facing)
+  train:
+    description: Open the stamina training interface.
+    usage: /train
+
+  vendor:
+    description: Open the ability vendor shop.
+    usage: /vendor
+
+  # PD shop (player-facing, if still in use)
+  pdshop:
+    description: Open PD Ability Shop.
+    usage: /pdshop
+
+  # Player currency commands
+  yen:
+    description: View your yen or send yen to another player.
+    usage: "/yen  OR  /yen pay <player> <amount>"
+
+  pdtokens:
+    description: View your PD tokens or send them to another player.
+    usage: "/pdtokens  OR  /pdtokens pay <player> <amount>"
+
+  # Testing helper (admin)
+  asptest:
+    description: AnimeSMP testing tools.
+    usage: /asptest
+    permission: animesmp.admin
+
+  # Legacy / direct admin tools
+  abilityadmin:
+    description: Admin ability & profile tools.
+    usage: /abilityadmin
+    permission: animesmp.admin
+
+  traintoken:
+    description: Admin training token command.
+    usage: /traintoken
+    permission: animesmp.admin
+
+  abilityscroll:
+    description: Admin ability scroll command.
+    usage: /abilityscroll
+    permission: animesmp.admin
+
+  yenadmin:
+    description: Admin yen economy command.
+    usage: /yenadmin
+    permission: animesmp.admin
+
+  shopnpc:
+    description: Spawn or manage shop/vendor NPCs.
+    usage: /shopnpc
+    permission: animesmp.admin
+
+  trainer:
+    description: Manage trainer ability quests.
+    usage: /trainer
+
+  traineradmin:
+    description: Admin trainer management command.
+    usage: /traineradmin <locate|tp|spawn|list>
+    permission: animesmp.admin
+
+  mission:
+    description: View your daily missions and progress.
+    usage: /mission
+
+  quests:
+    description: View your active trainer quests and their progress.
+    usage: /quests
+
+
+  pdadmin:
+    description: Admin control for PD events and PD tokens.
+    usage: "/pdadmin <start|stop|status|give|set|remove> ..."
+    permission: animesmp.admin
+
+  # Unified root admin command
+  animesmp:
+    description: Root admin command for AnimeSMP (ability, PD, trainer, yen, shop, reload).
+    usage: "/animesmp help"
+
+permissions:
+  animesmp.unlock.bypass:
+    description: Allows bypassing ability unlock requirements (DEV ONLY).
+    default: false
+  animesmp.bind.bypass:
+    description: Allows bypassing loadout type-lock rules (DEV ONLY).
+    default: false
+
+

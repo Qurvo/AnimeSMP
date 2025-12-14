@@ -1,0 +1,613 @@
+# AnimeSMP config (updated for tiered damage caps + ultimate bar w/ decay)
+
+balance:
+  damage:
+    # Hard caps are FINAL PvP damage (in hearts) after stats/buffs/etc.
+    tier-max-pvp-damage-hearts:
+      COMMON: 1.0
+      RARE: 1.5
+      EPIC: 2.5
+      LEGENDARY: 3.5
+      ULTIMATE: 4.5
+
+    # Strength scales damage/knockback INTO the cap (never past it).
+    strength:
+      damage-mult-per-point: 0.025     # 20 STR => +50% pre-cap
+      knockback-mult-per-point: 0.020
+      knockback-max-mult: 1.35
+
+    # Constitution reduces incoming ability damage (applied after attacker damage calc).
+    constitution:
+      resist-per-point: 0.015          # 1.5% per point
+      resist-softcap: 0.30             # 30% max effective resist
+
+    # Technique reduces cooldown/stamina but is hard limited.
+    technique:
+      cooldown-reduction-max: 0.50     # 50% max CDR
+      stamina-reduction-max: 0.40      # 40% max stamina reduction
+      cooldown-floor-seconds:
+        COMMON: 4.0
+        RARE: 5.0
+        EPIC: 7.0
+        LEGENDARY: 9.0
+        ULTIMATE: 60.0
+
+  ultimate:
+    enabled: true
+
+    # After casting an ultimate, charging is LOCKED for this duration.
+    post-cast-lockout-seconds: 90
+
+    # Bar decays when out of combat so players can't bank it forever.
+    decay:
+      start-after-seconds-out-of-combat: 8
+      decay-per-second-percent: 1.25
+
+    # Charge sources. Tuned to ~1 ultimate per 2–3 real fights.
+    charge:
+      per-heart-ability-damage-dealt-percent: 2.0
+      per-heart-melee-damage-dealt-percent: 0.9
+      per-heart-damage-taken-percent: 0.6
+      on-player-kill-bonus-percent: 6.0
+      max-percent-per-second: 12.0
+
+    # Bossbar UI (separate per-player bar; do NOT reuse PD bossbar)
+    bossbar:
+      color: BLUE
+      style: SOLID
+      visible-when-zero: false
+      ready-sound: "ENTITY_PLAYER_LEVELUP"
+      ready-sound-volume: 1.0
+      ready-sound-pitch: 1.2
+
+    # Actionbar indicator for the ultimate slot binding
+    slot-indicator:
+      not-ready-color: RED
+      ready-color: GREEN
+
+abilities:
+  flashstep:
+    display-name: Flashstep
+    type: MOVEMENT
+    tier: VENDOR
+    cooldown: 10.0
+    stamina-cost: 13
+    base-damage-hearts: 0.0
+
+  soru_step:
+    display-name: Soru Step
+    type: MOVEMENT
+    tier: TRAINER
+    cooldown: 10.0
+    stamina-cost: 15
+    base-damage-hearts: 0.0
+
+  thunderclap_dash:
+    display-name: Thunderclap Dash
+    type: MOVEMENT
+    tier: TRAINER
+    cooldown: 12.0
+    stamina-cost: 16
+    base-damage-hearts: 0.0
+
+  sky_walk:
+    display-name: Sky Walk
+    type: MOVEMENT
+    tier: TRAINER
+    cooldown: 12.0
+    stamina-cost: 21
+    base-damage-hearts: 0.0
+
+  shadow_slip:
+    display-name: Shadow Slip
+    type: MOVEMENT
+    tier: VENDOR
+    cooldown: 12.0
+    stamina-cost: 13
+    base-damage-hearts: 0.0
+
+  beast_pounce:
+    display-name: Beast Pounce
+    type: MOVEMENT
+    tier: SCROLL
+    cooldown: 8.0
+    stamina-cost: 14
+    base-damage-hearts: 0.0
+
+  burst_step:
+    display-name: Burst Step
+    type: MOVEMENT
+    tier: SCROLL
+    cooldown: 8.0
+    stamina-cost: 10
+    base-damage-hearts: 0.0
+
+  # DAMAGE (Light)
+  rankyaku_slice:
+    display-name: Rankyaku Slice
+    type: DAMAGE_LIGHT
+    tier: SCROLL
+    cooldown: 6.0
+    stamina-cost: 16
+    base-damage-hearts: 0.6
+    damage-tier: COMMON
+
+  rumble_claw:
+    display-name: Rumble Claw
+    type: DAMAGE_LIGHT
+    tier: SCROLL
+    cooldown: 6.0
+    stamina-cost: 19
+    base-damage-hearts: 0.6
+    damage-tier: COMMON
+
+  spirit_bullet:
+    display-name: Spirit Bullet
+    type: DAMAGE_LIGHT
+    tier: SCROLL
+    cooldown: 7.0
+    stamina-cost: 21
+    base-damage-hearts: 0.6
+    damage-tier: COMMON
+
+  gomu_rocket_punch:
+    display-name: Gomu Rocket Punch
+    type: DAMAGE_LIGHT
+    tier: SCROLL
+    cooldown: 6.0
+    stamina-cost: 21
+    base-damage-hearts: 0.6
+    damage-tier: COMMON
+
+  arcane_spear:
+    display-name: Arcane Spear
+    type: DAMAGE_LIGHT
+    tier: VENDOR
+    cooldown: 9.0
+    stamina-cost: 24
+    base-damage-hearts: 0.9
+    damage-tier: RARE
+
+  spider_thread_cutter:
+    display-name: Spider Thread Cutter
+    type: DAMAGE_LIGHT
+    tier: VENDOR
+    cooldown: 6.0
+    stamina-cost: 18
+    base-damage-hearts: 0.9
+    damage-tier: RARE
+
+  dark_slash:
+    display-name: Dark Slash
+    type: DAMAGE_LIGHT
+    tier: VENDOR
+    cooldown: 6.0
+    stamina-cost: 19
+    base-damage-hearts: 0.9
+    damage-tier: RARE
+
+  blood_sickle_slash:
+    display-name: Blood Sickle Slash
+    type: DAMAGE_LIGHT
+    tier: VENDOR
+    cooldown: 6.0
+    stamina-cost: 22
+    base-damage-hearts: 0.9
+    damage-tier: RARE
+
+  abyss_cutter:
+    display-name: Abyss Cutter
+    type: DAMAGE_LIGHT
+    tier: VENDOR
+    cooldown: 6.0
+    stamina-cost: 23
+    base-damage-hearts: 0.9
+    damage-tier: RARE
+
+  arcane_burst:
+    display-name: Arcane Burst
+    type: DAMAGE_LIGHT
+    tier: VENDOR
+    cooldown: 9.0
+    stamina-cost: 24
+    base-damage-hearts: 0.9
+    damage-tier: RARE
+
+  crescent_moon_arc:
+    display-name: Crescent Moon Arc
+    type: DAMAGE_LIGHT
+    tier: TRAINER
+    cooldown: 6.0
+    stamina-cost: 20
+    base-damage-hearts: 1.4
+    damage-tier: EPIC
+
+  getsu_wave:
+    display-name: Getsu Wave
+    type: DAMAGE_LIGHT
+    tier: TRAINER
+    cooldown: 6.0
+    stamina-cost: 20
+    base-damage-hearts: 1.4
+    damage-tier: EPIC
+
+  ki_blast_barrage:
+    display-name: Ki Blast Barrage
+    type: DAMAGE_LIGHT
+    tier: TRAINER
+    cooldown: 6.0
+    stamina-cost: 27
+    base-damage-hearts: 1.4
+    damage-tier: EPIC
+
+  thunder_pierce:
+    display-name: Thunder Pierce
+    type: DAMAGE_LIGHT
+    tier: TRAINER
+    cooldown: 6.0
+    stamina-cost: 20
+    base-damage-hearts: 1.4
+    damage-tier: EPIC
+
+  wind_typhoon_slash:
+    display-name: Wind Typhoon Slash
+    type: DAMAGE_LIGHT
+    tier: TRAINER
+    cooldown: 6.0
+    stamina-cost: 25
+    base-damage-hearts: 1.4
+    damage-tier: EPIC
+
+  # DAMAGE (Heavy)
+  fire_fist:
+    display-name: Fire Fist
+    type: DAMAGE_HEAVY
+    tier: TRAINER
+    cooldown: 10.0
+    stamina-cost: 26
+    base-damage-hearts: 1.8
+    damage-tier: EPIC
+
+  exploding_blood_burst:
+    display-name: Exploding Blood Burst
+    type: DAMAGE_HEAVY
+    tier: TRAINER
+    cooldown: 10.0
+    stamina-cost: 28
+    base-damage-hearts: 1.8
+    damage-tier: EPIC
+
+  shockwave_roar:
+    display-name: Shockwave Roar
+    type: DAMAGE_HEAVY
+    tier: TRAINER
+    cooldown: 10.0
+    stamina-cost: 27
+    base-damage-hearts: 1.8
+    damage-tier: EPIC
+
+  shockwave:
+    display-name: Shockwave
+    type: DAMAGE_HEAVY
+    tier: VENDOR
+    cooldown: 10.0
+    stamina-cost: 26
+    base-damage-hearts: 1.6
+    damage-tier: EPIC
+
+  thunder_beam:
+    display-name: Thunder Beam
+    type: DAMAGE_HEAVY
+    tier: TRAINER
+    cooldown: 10.0
+    stamina-cost: 32
+    base-damage-hearts: 1.8
+    damage-tier: EPIC
+
+  cursed_black_flash:
+    display-name: Cursed Black Flash
+    type: DAMAGE_HEAVY
+    tier: TRAINER
+    cooldown: 10.0
+    stamina-cost: 30
+    base-damage-hearts: 1.8
+    damage-tier: EPIC
+
+  crescent_typhoon_slash:
+    display-name: Crescent Typhoon Slash
+    type: DAMAGE_HEAVY
+    tier: TRAINER
+    cooldown: 10.0
+    stamina-cost: 33
+    base-damage-hearts: 1.8
+    damage-tier: EPIC
+
+  # DEFENSE
+  flame_cloak:
+    display-name: Flame Cloak
+    type: DEFENSE
+    tier: VENDOR
+    cooldown: 22.0
+    stamina-cost: 20
+    base-damage-hearts: 0.0
+
+  harden_skin:
+    display-name: Harden Skin
+    type: DEFENSE
+    tier: SCROLL
+    cooldown: 24.0
+    stamina-cost: 21
+    base-damage-hearts: 0.0
+
+  iron_body:
+    display-name: Iron Body
+    type: DEFENSE
+    tier: TRAINER
+    cooldown: 28.0
+    stamina-cost: 26
+    base-damage-hearts: 0.0
+
+  shadow_guard:
+    display-name: Shadow Guard
+    type: DEFENSE
+    tier: TRAINER
+    cooldown: 26.0
+    stamina-cost: 25
+    base-damage-hearts: 0.0
+
+  ki_barrier:
+    display-name: Ki Barrier
+    type: DEFENSE
+    tier: TRAINER
+    cooldown: 24.0
+    stamina-cost: 23
+    base-damage-hearts: 0.0
+
+  water_parry:
+    display-name: Water Parry
+    type: DEFENSE
+    tier: TRAINER
+    cooldown: 18.0
+    stamina-cost: 16
+    base-damage-hearts: 0.0
+
+  cursed_armor:
+    display-name: Cursed Armor
+    type: DEFENSE
+    tier: PD
+    cooldown: 35.0
+    stamina-cost: 30
+    base-damage-hearts: 0.0
+
+  # UTILITY
+  beast_instinct:
+    display-name: Beast Instinct
+    type: UTILITY
+    tier: TRAINER
+    cooldown: 35.0
+    stamina-cost: 23
+    base-damage-hearts: 0.0
+
+  chakra_renewal:
+    display-name: Chakra Renewal
+    type: UTILITY
+    tier: TRAINER
+    cooldown: 35.0
+    stamina-cost: 0
+    base-damage-hearts: 0.0
+
+  breathing_focus:
+    display-name: Breathing Focus
+    type: UTILITY
+    tier: TRAINER
+    cooldown: 30.0
+    stamina-cost: 16
+    base-damage-hearts: 0.0
+
+  cursed_pulse:
+    display-name: Cursed Pulse
+    type: UTILITY
+    tier: TRAINER
+    cooldown: 30.0
+    stamina-cost: 20
+    base-damage-hearts: 0.0
+
+  gale_zone:
+    display-name: Gale Zone
+    type: UTILITY
+    tier: VENDOR
+    cooldown: 28.0
+    stamina-cost: 22
+    base-damage-hearts: 0.0
+
+  observation_sense:
+    display-name: Observation Sense
+    type: UTILITY
+    tier: TRAINER
+    cooldown: 30.0
+    stamina-cost: 23
+    base-damage-hearts: 0.0
+
+  shadow_bind:
+    display-name: Shadow Bind
+    type: UTILITY
+    tier: TRAINER
+    cooldown: 26.0
+    stamina-cost: 23
+    base-damage-hearts: 0.0
+
+  spider_trap:
+    display-name: Spider Trap
+    type: UTILITY
+    tier: VENDOR
+    cooldown: 24.0
+    stamina-cost: 21
+    base-damage-hearts: 0.0
+
+  # ULTIMATES (gated by ultimate bar + lockout; keep cooldown as a safety net)
+  moon_sever:
+    display-name: Moon Sever
+    type: ULTIMATE
+    tier: PD
+    cooldown: 90.0
+    stamina-cost: 44
+    base-damage-hearts: 3.0
+    damage-tier: ULTIMATE
+
+  inferno_nova:
+    display-name: Inferno Nova
+    type: ULTIMATE
+    tier: PD
+    cooldown: 90.0
+    stamina-cost: 46
+    base-damage-hearts: 3.0
+    damage-tier: ULTIMATE
+
+  judgment_bolt:
+    display-name: Judgment Bolt
+    type: ULTIMATE
+    tier: PD
+    cooldown: 90.0
+    stamina-cost: 49
+    base-damage-hearts: 3.0
+    damage-tier: ULTIMATE
+
+  annihilation_punch:
+    display-name: Annihilation Punch
+    type: ULTIMATE
+    tier: PD
+    cooldown: 90.0
+    stamina-cost: 50
+    base-damage-hearts: 3.0
+    damage-tier: ULTIMATE
+
+  dragon_gods_fist:
+    display-name: Dragon God's Fist
+    type: ULTIMATE
+    tier: PD
+    cooldown: 90.0
+    stamina-cost: 51
+    base-damage-hearts: 3.0
+    damage-tier: ULTIMATE
+
+  full_moon_typhoon:
+    display-name: Full Moon Typhoon
+    type: ULTIMATE
+    tier: PD
+    cooldown: 90.0
+    stamina-cost: 65
+    base-damage-hearts: 3.0
+    damage-tier: ULTIMATE
+
+loot:
+  scrolls:
+    enabled: true
+    base-chance: 0.4
+    min-amount: 1
+    max-amount: 2
+    rarity-chances:
+      SCROLL: 0.2
+      VENDOR: 0.1
+      TRAINER: 0.05
+      PD: 0.005
+
+ability-costs:
+  flashstep: 3500
+  shadow_slip: 3200
+  shockwave: 3200
+  flame_cloak: 3200
+  arcane_spear: 3400
+  spider_thread_cutter: 3400
+  dark_slash: 3400
+  blood_sickle_slash: 3600
+  abyss_cutter: 3800
+  gale_zone: 3600
+  spider_trap: 3400
+  thunderclap_dash: 0
+  sky_walk: 0
+  spirit_bullet: 0
+  iron_body: 0
+  observation_sense: 0
+  thunder_pierce: 0
+
+trainers:
+  spawn-radius: 1500
+
+pd-ability-costs:
+  moon_sever: 8
+  inferno_nova: 8
+  judgment_bolt: 8
+  annihilation_punch: 10
+  dragon_gods_fist: 10
+  full_moon_typhoon: 12
+  cursed_armor: 6
+
+rewards:
+  kills:
+    player:
+      yen: 50
+      xp: 50
+    mob:
+      yen: 10
+      xp: 15
+
+pd-event:
+  enabled: true
+  min-wipe-level: 20
+  xp-multiplier: 2.0
+  yen-multiplier: 2.0
+  min-participation-minutes: 10
+  kill-tokens: 1
+  winner-tokens: 3
+  schedule:
+    enabled: true
+    min-events-per-day: 1
+    max-events-per-day: 2
+    min-duration-minutes: 60
+    max-duration-minutes: 120
+    min-gap-minutes: 60
+    max-gap-minutes: 180
+
+kill-reward:
+  cooldown-ms: 300000
+
+trainer-abilities:
+  ichigo:
+    min-level: 5
+    teachesAbilities:
+      - soru_step
+      - thunderclap_dash
+      - crescent_moon_arc
+      - getsu_wave
+      - breathing_focus
+      - observation_sense
+
+  ace:
+    min-level: 10
+    teachesAbilities:
+      - fire_fist
+      - exploding_blood_burst
+      - shockwave_roar
+      - thunder_beam
+      - chakra_renewal
+      - ki_barrier
+
+  kokushibo:
+    min-level: 15
+    teachesAbilities:
+      - cursed_black_flash
+      - crescent_typhoon_slash
+      - wind_typhoon_slash
+      - shadow_guard
+      - cursed_pulse
+      - shadow_bind
+
+  luffy:
+    min-level: 8
+    teachesAbilities:
+      - sky_walk
+      - ki_blast_barrage
+      - thunder_pierce
+      - iron_body
+      - water_parry
+      - beast_instinct
