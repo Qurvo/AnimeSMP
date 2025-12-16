@@ -5,6 +5,9 @@ import com.animesmp.core.pd.PdEventManager;
 import org.bukkit.ChatColor;
 import org.bukkit.command.*;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,10 +22,10 @@ public class PdAdminCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.DARK_RED + "====== " + ChatColor.RED + "Perma Death Admin" + ChatColor.DARK_RED + " ======");
-        sender.sendMessage(ChatColor.GOLD + "/pdadmin start" + ChatColor.GRAY + " - Start a Perma Death window now.");
-        sender.sendMessage(ChatColor.GOLD + "/pdadmin stop" + ChatColor.GRAY + " - Force stop Perma Death.");
-        sender.sendMessage(ChatColor.GOLD + "/pdadmin status" + ChatColor.GRAY + " - View current PD status.");
+        sender.sendMessage(ChatColor.DARK_RED + "====== " + ChatColor.RED + "PD Admin" + ChatColor.DARK_RED + " ======");
+        sender.sendMessage(ChatColor.GOLD + "/pdadmin start" + ChatColor.GRAY + " - Start PD now.");
+        sender.sendMessage(ChatColor.GOLD + "/pdadmin stop" + ChatColor.GRAY + " - Stop PD now.");
+        sender.sendMessage(ChatColor.GOLD + "/pdadmin status" + ChatColor.GRAY + " - View PD status.");
     }
 
     @Override
@@ -37,9 +40,7 @@ public class PdAdminCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String sub = args[0].toLowerCase();
-
-        switch (sub) {
+        switch (args[0].toLowerCase()) {
             case "start":
                 handleStart(sender);
                 return true;
@@ -57,59 +58,55 @@ public class PdAdminCommand implements CommandExecutor, TabCompleter {
 
     private void handleStart(CommandSender sender) {
         if (pd.isActive()) {
-            sender.sendMessage(ChatColor.RED + "Perma Death is already active.");
+            sender.sendMessage(ChatColor.RED + "PD is already active.");
             return;
         }
         pd.adminStartNow();
-        sender.sendMessage(ChatColor.GREEN + "Perma Death started. All players have been notified.");
+        sender.sendMessage(ChatColor.GREEN + "PD started.");
     }
 
     private void handleStop(CommandSender sender) {
         if (!pd.isActive()) {
-            sender.sendMessage(ChatColor.RED + "Perma Death is not currently active.");
+            sender.sendMessage(ChatColor.RED + "PD is not active.");
             return;
         }
         pd.adminStopNow();
-        sender.sendMessage(ChatColor.YELLOW + "Perma Death has been stopped.");
+        sender.sendMessage(ChatColor.GREEN + "PD stopped.");
     }
 
     private void handleStatus(CommandSender sender) {
+        sender.sendMessage(ChatColor.DARK_RED + "====== " + ChatColor.RED + "PD Status" + ChatColor.DARK_RED + " ======");
+
         boolean active = pd.isActive();
-
-        double cfgXp = plugin.getConfig().getDouble("pd-event.xp-multiplier", 2.0);
-        double cfgYen = plugin.getConfig().getDouble("pd-event.yen-multiplier", 2.0);
-
-        sender.sendMessage(ChatColor.DARK_RED + "====== " + ChatColor.RED + "Perma Death Status" + ChatColor.DARK_RED + " ======");
-        sender.sendMessage(ChatColor.GOLD + "Active: " + (active ? ChatColor.GREEN + "YES" : ChatColor.RED + "NO"));
-        sender.sendMessage(ChatColor.GOLD + "Min Wipe Level: " + ChatColor.YELLOW + pd.getMinWipeLevel());
-
-        sender.sendMessage(ChatColor.GOLD + "XP Multiplier: " + ChatColor.AQUA + cfgXp + "x");
-        sender.sendMessage(ChatColor.GOLD + "Yen Multiplier: " + ChatColor.AQUA + cfgYen + "x");
+        sender.sendMessage(ChatColor.GRAY + "Active: " + (active ? ChatColor.GREEN + "YES" : ChatColor.RED + "NO"));
 
         if (active) {
-            long ms = pd.getRemainingMs();
-            long seconds = ms / 1000;
-            long minutes = seconds / 60;
-            long remSec = seconds % 60;
-            sender.sendMessage(ChatColor.GOLD + "Time Remaining: " + ChatColor.YELLOW + minutes + "m " + remSec + "s");
+            long rem = pd.getRemainingMs();
+            sender.sendMessage(ChatColor.GRAY + "Time left: " + ChatColor.WHITE + formatHoursMinutes(rem));
+            sender.sendMessage(ChatColor.GRAY + "Multipliers: " + ChatColor.AQUA + pd.getXpMultiplier() + "x XP"
+                    + ChatColor.GRAY + ", " + ChatColor.YELLOW + pd.getYenMultiplier() + "x Yen");
+            sender.sendMessage(ChatColor.GRAY + "Wipe level: " + ChatColor.WHITE + ">= " + pd.getMinWipeLevel());
         } else {
-            boolean autoEnabled = plugin.getConfig().getBoolean("pd-event.auto-start.enabled", true);
-            int minOnline = plugin.getConfig().getInt("pd-event.auto-start.min-online", 10);
-
-            sender.sendMessage(ChatColor.GOLD + "Auto Start: " + (autoEnabled ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED"));
-            sender.sendMessage(ChatColor.GOLD + "Auto Start Min Online: " + ChatColor.YELLOW + minOnline);
-
-            long nextEligible = pd.getNextEligibleAutoStartMs();
-            if (nextEligible > 0) {
-                long ms = Math.max(0L, nextEligible - System.currentTimeMillis());
-                long seconds = ms / 1000;
-                long minutes = seconds / 60;
-                long remSec = seconds % 60;
-                sender.sendMessage(ChatColor.GOLD + "Next Auto-Start Eligible In: " + ChatColor.YELLOW + minutes + "m " + remSec + "s");
+            long next = pd.getNextEligibleAutoStartMs(); // <-- compile fix relies on this existing
+            if (next <= 0L) {
+                sender.sendMessage(ChatColor.GRAY + "Next auto start: " + ChatColor.DARK_GRAY + "N/A");
             } else {
-                sender.sendMessage(ChatColor.GOLD + "Next Auto-Start Eligible In: " + ChatColor.YELLOW + "0m 0s");
+                ZoneId zone = ZoneId.of(plugin.getConfig().getString("vendor-reset.zone", "Europe/Lisbon"));
+                ZonedDateTime zdt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(next), zone);
+
+                long delta = Math.max(0L, next - System.currentTimeMillis());
+                sender.sendMessage(ChatColor.GRAY + "Next auto start: " + ChatColor.WHITE + zdt.toLocalTime()
+                        + ChatColor.DARK_GRAY + " (" + formatHoursMinutes(delta) + ")");
             }
         }
+    }
+
+    private String formatHoursMinutes(long ms) {
+        long totalSec = ms / 1000L;
+        long hours = totalSec / 3600L;
+        long minutes = (totalSec % 3600L) / 60L;
+        if (hours > 0) return hours + "h " + minutes + "m";
+        return minutes + "m";
     }
 
     @Override
@@ -118,10 +115,9 @@ public class PdAdminCommand implements CommandExecutor, TabCompleter {
         if (!sender.hasPermission("animesmp.admin")) return out;
 
         if (args.length == 1) {
-            String prefix = args[0].toLowerCase();
-            for (String s : new String[]{"start", "stop", "status"}) {
-                if (s.startsWith(prefix)) out.add(s);
-            }
+            out.add("start");
+            out.add("stop");
+            out.add("status");
         }
         return out;
     }
