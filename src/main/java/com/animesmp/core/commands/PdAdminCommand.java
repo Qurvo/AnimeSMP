@@ -3,11 +3,7 @@ package com.animesmp.core.commands;
 import com.animesmp.core.AnimeSMPPlugin;
 import com.animesmp.core.pd.PdEventManager;
 import org.bukkit.ChatColor;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Player;
+import org.bukkit.command.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -79,18 +75,40 @@ public class PdAdminCommand implements CommandExecutor, TabCompleter {
 
     private void handleStatus(CommandSender sender) {
         boolean active = pd.isActive();
+
+        double cfgXp = plugin.getConfig().getDouble("pd-event.xp-multiplier", 2.0);
+        double cfgYen = plugin.getConfig().getDouble("pd-event.yen-multiplier", 2.0);
+
         sender.sendMessage(ChatColor.DARK_RED + "====== " + ChatColor.RED + "Perma Death Status" + ChatColor.DARK_RED + " ======");
         sender.sendMessage(ChatColor.GOLD + "Active: " + (active ? ChatColor.GREEN + "YES" : ChatColor.RED + "NO"));
         sender.sendMessage(ChatColor.GOLD + "Min Wipe Level: " + ChatColor.YELLOW + pd.getMinWipeLevel());
-        sender.sendMessage(ChatColor.GOLD + "XP Multiplier: " + ChatColor.AQUA + pd.getXpMultiplier());
+
+        sender.sendMessage(ChatColor.GOLD + "XP Multiplier: " + ChatColor.AQUA + cfgXp + "x");
+        sender.sendMessage(ChatColor.GOLD + "Yen Multiplier: " + ChatColor.AQUA + cfgYen + "x");
 
         if (active) {
             long ms = pd.getRemainingMs();
             long seconds = ms / 1000;
             long minutes = seconds / 60;
             long remSec = seconds % 60;
-            sender.sendMessage(ChatColor.GOLD + "Time Remaining: " +
-                    ChatColor.YELLOW + minutes + "m " + remSec + "s");
+            sender.sendMessage(ChatColor.GOLD + "Time Remaining: " + ChatColor.YELLOW + minutes + "m " + remSec + "s");
+        } else {
+            boolean autoEnabled = plugin.getConfig().getBoolean("pd-event.auto-start.enabled", true);
+            int minOnline = plugin.getConfig().getInt("pd-event.auto-start.min-online", 10);
+
+            sender.sendMessage(ChatColor.GOLD + "Auto Start: " + (autoEnabled ? ChatColor.GREEN + "ENABLED" : ChatColor.RED + "DISABLED"));
+            sender.sendMessage(ChatColor.GOLD + "Auto Start Min Online: " + ChatColor.YELLOW + minOnline);
+
+            long nextEligible = pd.getNextEligibleAutoStartMs();
+            if (nextEligible > 0) {
+                long ms = Math.max(0L, nextEligible - System.currentTimeMillis());
+                long seconds = ms / 1000;
+                long minutes = seconds / 60;
+                long remSec = seconds % 60;
+                sender.sendMessage(ChatColor.GOLD + "Next Auto-Start Eligible In: " + ChatColor.YELLOW + minutes + "m " + remSec + "s");
+            } else {
+                sender.sendMessage(ChatColor.GOLD + "Next Auto-Start Eligible In: " + ChatColor.YELLOW + "0m 0s");
+            }
         }
     }
 

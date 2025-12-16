@@ -1,8 +1,94 @@
-# AnimeSMP config (updated for tiered damage caps + ultimate bar w/ decay)
+# AnimeSMP config (updated: remove loadout, trainers teach ONLY RARE, commons show properly, very low epic vendor chance)
+
+vendor-reset:
+  zone: "Europe/Lisbon"
+  hour: 8
+  minute: 0
+
+tutorial:
+  enabled: true
+  auto-start-on-first-join: true
+  allow-replay: true
+
+  # delays (seconds) for the more noticeable clickable messages
+  notice-delays:
+    bind-mod-seconds: 3
+    completion-links-seconds: 4
+
+  actionbar:
+    enabled: true
+    period-ticks: 20
+
+  bossbar:
+    color: RED
+    style: SOLID
+
+  trail:
+    enabled: true
+    period-ticks: 5
+    max-distance: 160.0
+    points: 22
+    color:
+      r: 255
+      g: 35
+      b: 35
+      size: 1.8
+
+  links:
+    discord: "https://discord.gg/yourlink"
+    trello: "https://trello.com/b/yourboard"
+    bind-mod: "https://modrinth.com/mod/bind-commands"
+
+  reward:
+    give-random-common: true
+    auto-open-loadout: false
+
+  # Optional message text used by newer TutorialManager (safe if ignored)
+  completion:
+    chat-message: "&aGreat job! Tutorial complete. Don't forget to join the &bDiscord&a and check the &bTrello&a."
+
+  particles:
+    interval-ticks: 10
+    max-search-distance: 200.0
+    max-render-distance: 80.0
+    spacing: 0.6
+    max-points: 80
+    size: 1.6
+    target-pillar-height: 10
+    color:
+      r: 255
+      g: 40
+      b: 40
+
+  messages:
+    mode: TITLE
+    welcome:
+      title: "&bAnimeSMP Tutorial"
+      subtitle: "&7Type &e/stats &7to begin"
+    stats:
+      title: "&eStep 1: Stats"
+      subtitle: "&7Run &e/stats"
+    skills:
+      title: "&eStep 2: Skills"
+      subtitle: "&7Run &e/skills"
+    abilityVendor:
+      title: "&dAbility Vendor"
+      subtitle: "&7Follow particles and interact"
+    pdVendor:
+      title: "&4PD Vendor"
+      subtitle: "&7Follow particles and interact"
+    trainer:
+      title: "&bTrainer"
+      subtitle: "&7Follow particles and interact"
+    bind:
+      title: "&eBinding"
+      subtitle: "&7Use &e/bind 1 <abilityId>"
+    cast:
+      title: "&eCasting"
+      subtitle: "&7Use &e/cast1..5 &7(or bind keys)"
 
 balance:
   damage:
-    # Hard caps are FINAL PvP damage (in hearts) after stats/buffs/etc.
     tier-max-pvp-damage-hearts:
       COMMON: 1.0
       RARE: 1.5
@@ -10,21 +96,18 @@ balance:
       LEGENDARY: 3.5
       ULTIMATE: 4.5
 
-    # Strength scales damage/knockback INTO the cap (never past it).
     strength:
-      damage-mult-per-point: 0.025     # 20 STR => +50% pre-cap
+      damage-mult-per-point: 0.025
       knockback-mult-per-point: 0.020
       knockback-max-mult: 1.35
 
-    # Constitution reduces incoming ability damage (applied after attacker damage calc).
     constitution:
-      resist-per-point: 0.015          # 1.5% per point
-      resist-softcap: 0.30             # 30% max effective resist
+      resist-per-point: 0.015
+      resist-softcap: 0.30
 
-    # Technique reduces cooldown/stamina but is hard limited.
     technique:
-      cooldown-reduction-max: 0.50     # 50% max CDR
-      stamina-reduction-max: 0.40      # 40% max stamina reduction
+      cooldown-reduction-max: 0.50
+      stamina-reduction-max: 0.40
       cooldown-floor-seconds:
         COMMON: 4.0
         RARE: 5.0
@@ -34,16 +117,12 @@ balance:
 
   ultimate:
     enabled: true
-
-    # After casting an ultimate, charging is LOCKED for this duration.
     post-cast-lockout-seconds: 90
 
-    # Bar decays when out of combat so players can't bank it forever.
     decay:
       start-after-seconds-out-of-combat: 8
       decay-per-second-percent: 1.25
 
-    # Charge sources. Tuned to ~1 ultimate per 2–3 real fights.
     charge:
       per-heart-ability-damage-dealt-percent: 2.0
       per-heart-melee-damage-dealt-percent: 0.9
@@ -51,7 +130,6 @@ balance:
       on-player-kill-bonus-percent: 6.0
       max-percent-per-second: 12.0
 
-    # Bossbar UI (separate per-player bar; do NOT reuse PD bossbar)
     bossbar:
       color: BLUE
       style: SOLID
@@ -60,14 +138,34 @@ balance:
       ready-sound-volume: 1.0
       ready-sound-pitch: 1.2
 
-    # Actionbar indicator for the ultimate slot binding
     slot-indicator:
       not-ready-color: RED
       ready-color: GREEN
 
+# Daily Ability Vendor rotation
+ability-vendor:
+  stock-size: 9
+  weights:
+    common: 85
+    rare: 14
+    epic: 1
+
+  # Treat tier: SCROLL as common pool (if your vendor code supports this)
+  common-includes-scroll: true
+
+  # Ensures commons always show up
+  min-commons: 4
+
+  # Price curve (rares cheaper than epics)
+  prices:
+    common: 2000
+    rare: 3500
+    epic: 12000
+
 abilities:
   flashstep:
     display-name: Flashstep
+    description: "Blink a short distance forward instantly."
     type: MOVEMENT
     tier: VENDOR
     cooldown: 10.0
@@ -76,30 +174,34 @@ abilities:
 
   soru_step:
     display-name: Soru Step
+    description: "Burst forward with a rapid footstep dash."
     type: MOVEMENT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 10.0
     stamina-cost: 15
     base-damage-hearts: 0.0
 
   thunderclap_dash:
     display-name: Thunderclap Dash
+    description: "Dash in a lightning-fast line to reposition or escape."
     type: MOVEMENT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 12.0
     stamina-cost: 16
     base-damage-hearts: 0.0
 
   sky_walk:
     display-name: Sky Walk
+    description: "Leap and step through the air to gain height and mobility."
     type: MOVEMENT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 12.0
     stamina-cost: 21
     base-damage-hearts: 0.0
 
   shadow_slip:
     display-name: Shadow Slip
+    description: "Slip through shadows to quickly reposition."
     type: MOVEMENT
     tier: VENDOR
     cooldown: 12.0
@@ -108,6 +210,7 @@ abilities:
 
   beast_pounce:
     display-name: Beast Pounce
+    description: "Pounce toward your target with a feral burst of speed."
     type: MOVEMENT
     tier: SCROLL
     cooldown: 8.0
@@ -116,15 +219,16 @@ abilities:
 
   burst_step:
     display-name: Burst Step
+    description: "A short, snappy dash for quick dodges and engages."
     type: MOVEMENT
     tier: SCROLL
     cooldown: 8.0
     stamina-cost: 10
     base-damage-hearts: 0.0
 
-  # DAMAGE (Light)
   rankyaku_slice:
     display-name: Rankyaku Slice
+    description: "Launch a cutting air blade in front of you."
     type: DAMAGE_LIGHT
     tier: SCROLL
     cooldown: 6.0
@@ -134,6 +238,7 @@ abilities:
 
   rumble_claw:
     display-name: Rumble Claw
+    description: "Slash with crackling energy to strike a nearby target."
     type: DAMAGE_LIGHT
     tier: SCROLL
     cooldown: 6.0
@@ -143,6 +248,7 @@ abilities:
 
   spirit_bullet:
     display-name: Spirit Bullet
+    description: "Fire a fast spirit projectile at your target."
     type: DAMAGE_LIGHT
     tier: SCROLL
     cooldown: 7.0
@@ -152,6 +258,7 @@ abilities:
 
   gomu_rocket_punch:
     display-name: Gomu Rocket Punch
+    description: "Launch a stretching punch that rockets into the target."
     type: DAMAGE_LIGHT
     tier: SCROLL
     cooldown: 6.0
@@ -161,6 +268,7 @@ abilities:
 
   arcane_spear:
     display-name: Arcane Spear
+    description: "Conjure a piercing arcane spear of energy."
     type: DAMAGE_LIGHT
     tier: VENDOR
     cooldown: 9.0
@@ -170,6 +278,7 @@ abilities:
 
   spider_thread_cutter:
     display-name: Spider Thread Cutter
+    description: "Send razor threads forward to slice enemies."
     type: DAMAGE_LIGHT
     tier: VENDOR
     cooldown: 6.0
@@ -179,6 +288,7 @@ abilities:
 
   dark_slash:
     display-name: Dark Slash
+    description: "Release a dark slash that cuts through foes."
     type: DAMAGE_LIGHT
     tier: VENDOR
     cooldown: 6.0
@@ -188,6 +298,7 @@ abilities:
 
   blood_sickle_slash:
     display-name: Blood Sickle Slash
+    description: "Swing a blood-forged sickle slash at your enemies."
     type: DAMAGE_LIGHT
     tier: VENDOR
     cooldown: 6.0
@@ -197,6 +308,7 @@ abilities:
 
   abyss_cutter:
     display-name: Abyss Cutter
+    description: "Cut forward with a void-tinted blade of force."
     type: DAMAGE_LIGHT
     tier: VENDOR
     cooldown: 6.0
@@ -206,6 +318,7 @@ abilities:
 
   arcane_burst:
     display-name: Arcane Burst
+    description: "Detonate a burst of arcane energy on hit."
     type: DAMAGE_LIGHT
     tier: VENDOR
     cooldown: 9.0
@@ -215,116 +328,127 @@ abilities:
 
   crescent_moon_arc:
     display-name: Crescent Moon Arc
+    description: "Send a crescent moon slash that cleaves ahead."
     type: DAMAGE_LIGHT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 6.0
     stamina-cost: 20
-    base-damage-hearts: 1.4
-    damage-tier: EPIC
+    base-damage-hearts: 1.2
+    damage-tier: RARE
 
   getsu_wave:
     display-name: Getsu Wave
+    description: "Unleash a sweeping wave of spiritual energy."
     type: DAMAGE_LIGHT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 6.0
     stamina-cost: 20
-    base-damage-hearts: 1.4
-    damage-tier: EPIC
+    base-damage-hearts: 1.2
+    damage-tier: RARE
 
   ki_blast_barrage:
     display-name: Ki Blast Barrage
+    description: "Fire a rapid barrage of ki blasts forward."
     type: DAMAGE_LIGHT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 6.0
     stamina-cost: 27
-    base-damage-hearts: 1.4
-    damage-tier: EPIC
+    base-damage-hearts: 1.2
+    damage-tier: RARE
 
   thunder_pierce:
     display-name: Thunder Pierce
+    description: "Pierce forward with a lightning-charged strike."
     type: DAMAGE_LIGHT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 6.0
     stamina-cost: 20
-    base-damage-hearts: 1.4
-    damage-tier: EPIC
+    base-damage-hearts: 1.2
+    damage-tier: RARE
 
   wind_typhoon_slash:
     display-name: Wind Typhoon Slash
+    description: "Send a slicing gust that tears through enemies."
     type: DAMAGE_LIGHT
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 6.0
     stamina-cost: 25
-    base-damage-hearts: 1.4
-    damage-tier: EPIC
+    base-damage-hearts: 1.2
+    damage-tier: RARE
 
-  # DAMAGE (Heavy)
   fire_fist:
     display-name: Fire Fist
-    type: DAMAGE_HEAVY
-    tier: TRAINER
-    cooldown: 10.0
-    stamina-cost: 26
-    base-damage-hearts: 1.8
-    damage-tier: EPIC
-
-  exploding_blood_burst:
-    display-name: Exploding Blood Burst
-    type: DAMAGE_HEAVY
-    tier: TRAINER
-    cooldown: 10.0
-    stamina-cost: 28
-    base-damage-hearts: 1.8
-    damage-tier: EPIC
-
-  shockwave_roar:
-    display-name: Shockwave Roar
-    type: DAMAGE_HEAVY
-    tier: TRAINER
-    cooldown: 10.0
-    stamina-cost: 27
-    base-damage-hearts: 1.8
-    damage-tier: EPIC
-
-  shockwave:
-    display-name: Shockwave
+    description: "Smash forward with a blazing, heavy fire punch."
     type: DAMAGE_HEAVY
     tier: VENDOR
     cooldown: 10.0
     stamina-cost: 26
-    base-damage-hearts: 1.6
-    damage-tier: EPIC
+    base-damage-hearts: 1.3
+    damage-tier: RARE
+
+  exploding_blood_burst:
+    display-name: Exploding Blood Burst
+    description: "Detonate explosive blood energy in a powerful blast."
+    type: DAMAGE_HEAVY
+    tier: VENDOR
+    cooldown: 10.0
+    stamina-cost: 28
+    base-damage-hearts: 1.3
+    damage-tier: RARE
+
+  shockwave_roar:
+    display-name: Shockwave Roar
+    description: "Release a crushing shockwave roar to blast enemies back."
+    type: DAMAGE_HEAVY
+    tier: VENDOR
+    cooldown: 10.0
+    stamina-cost: 27
+    base-damage-hearts: 1.3
+    damage-tier: RARE
+
+  shockwave:
+    display-name: Shockwave
+    description: "Slam the ground to send a heavy shockwave outward."
+    type: DAMAGE_HEAVY
+    tier: VENDOR
+    cooldown: 10.0
+    stamina-cost: 26
+    base-damage-hearts: 1.3
+    damage-tier: RARE
 
   thunder_beam:
     display-name: Thunder Beam
+    description: "Channel a beam of lightning that blasts through targets."
     type: DAMAGE_HEAVY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 10.0
     stamina-cost: 32
-    base-damage-hearts: 1.8
-    damage-tier: EPIC
+    base-damage-hearts: 1.3
+    damage-tier: RARE
 
   cursed_black_flash:
     display-name: Cursed Black Flash
+    description: "Strike with cursed energy for a devastating heavy hit."
     type: DAMAGE_HEAVY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 10.0
     stamina-cost: 30
-    base-damage-hearts: 1.8
-    damage-tier: EPIC
+    base-damage-hearts: 1.3
+    damage-tier: RARE
 
   crescent_typhoon_slash:
     display-name: Crescent Typhoon Slash
+    description: "Unleash a violent crescent slash that rips through foes."
     type: DAMAGE_HEAVY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 10.0
     stamina-cost: 33
-    base-damage-hearts: 1.8
-    damage-tier: EPIC
+    base-damage-hearts: 1.3
+    damage-tier: RARE
 
-  # DEFENSE
   flame_cloak:
     display-name: Flame Cloak
+    description: "Wrap yourself in flames to deter attackers and reduce damage."
     type: DEFENSE
     tier: VENDOR
     cooldown: 22.0
@@ -333,6 +457,7 @@ abilities:
 
   harden_skin:
     display-name: Harden Skin
+    description: "Harden your body to shrug off incoming hits."
     type: DEFENSE
     tier: SCROLL
     cooldown: 24.0
@@ -341,79 +466,88 @@ abilities:
 
   iron_body:
     display-name: Iron Body
+    description: "Temporarily reinforce your body to greatly reduce damage taken."
     type: DEFENSE
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 28.0
     stamina-cost: 26
     base-damage-hearts: 0.0
 
   shadow_guard:
     display-name: Shadow Guard
+    description: "Summon shadowy protection to block incoming damage."
     type: DEFENSE
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 26.0
     stamina-cost: 25
     base-damage-hearts: 0.0
 
   ki_barrier:
     display-name: Ki Barrier
+    description: "Form a protective dome around yourself."
     type: DEFENSE
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 24.0
     stamina-cost: 23
     base-damage-hearts: 0.0
 
   water_parry:
     display-name: Water Parry
+    description: "Parry incoming attacks and counter with fluid defense."
     type: DEFENSE
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 18.0
     stamina-cost: 16
     base-damage-hearts: 0.0
 
   cursed_armor:
     display-name: Cursed Armor
+    description: "Coat yourself in cursed armor for powerful protection."
     type: DEFENSE
     tier: PD
     cooldown: 35.0
     stamina-cost: 30
     base-damage-hearts: 0.0
 
-  # UTILITY
   beast_instinct:
     display-name: Beast Instinct
+    description: "Sharpen your instincts to enhance combat awareness."
     type: UTILITY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 35.0
     stamina-cost: 23
     base-damage-hearts: 0.0
 
   chakra_renewal:
     display-name: Chakra Renewal
+    description: "Restore your energy to recover and sustain in fights."
     type: UTILITY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 35.0
     stamina-cost: 0
     base-damage-hearts: 0.0
 
   breathing_focus:
     display-name: Breathing Focus
+    description: "Enter a focused state to steady yourself and gain control."
     type: UTILITY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 30.0
     stamina-cost: 16
     base-damage-hearts: 0.0
 
   cursed_pulse:
     display-name: Cursed Pulse
+    description: "Emit a pulse of cursed energy to disrupt nearby foes."
     type: UTILITY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 30.0
     stamina-cost: 20
     base-damage-hearts: 0.0
 
   gale_zone:
     display-name: Gale Zone
+    description: "Create a zone of wind that hinders enemies and controls space."
     type: UTILITY
     tier: VENDOR
     cooldown: 28.0
@@ -422,31 +556,34 @@ abilities:
 
   observation_sense:
     display-name: Observation Sense
+    description: "Heighten your senses to detect and track nearby players."
     type: UTILITY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 30.0
     stamina-cost: 23
     base-damage-hearts: 0.0
 
   shadow_bind:
     display-name: Shadow Bind
+    description: "Bind an enemy with shadows to restrict movement."
     type: UTILITY
-    tier: TRAINER
+    tier: VENDOR
     cooldown: 26.0
     stamina-cost: 23
     base-damage-hearts: 0.0
 
   spider_trap:
     display-name: Spider Trap
+    description: "Lay sticky webbing to trap and slow enemies."
     type: UTILITY
     tier: VENDOR
     cooldown: 24.0
     stamina-cost: 21
     base-damage-hearts: 0.0
 
-  # ULTIMATES (gated by ultimate bar + lockout; keep cooldown as a safety net)
   moon_sever:
     display-name: Moon Sever
+    description: "Unleash a massive moon slash that devastates everything ahead."
     type: ULTIMATE
     tier: PD
     cooldown: 90.0
@@ -456,6 +593,7 @@ abilities:
 
   inferno_nova:
     display-name: Inferno Nova
+    description: "Erupt into an inferno nova that scorches the battlefield."
     type: ULTIMATE
     tier: PD
     cooldown: 90.0
@@ -465,6 +603,7 @@ abilities:
 
   judgment_bolt:
     display-name: Judgment Bolt
+    description: "Call down a judgment bolt of lightning on your enemies."
     type: ULTIMATE
     tier: PD
     cooldown: 90.0
@@ -474,6 +613,7 @@ abilities:
 
   annihilation_punch:
     display-name: Annihilation Punch
+    description: "Deliver a cataclysmic punch that annihilates your target."
     type: ULTIMATE
     tier: PD
     cooldown: 90.0
@@ -483,6 +623,7 @@ abilities:
 
   dragon_gods_fist:
     display-name: Dragon God's Fist
+    description: "Strike with a godly fist empowered by a dragon's might."
     type: ULTIMATE
     tier: PD
     cooldown: 90.0
@@ -492,6 +633,7 @@ abilities:
 
   full_moon_typhoon:
     display-name: Full Moon Typhoon
+    description: "Summon a full-moon typhoon that tears through everything around you."
     type: ULTIMATE
     tier: PD
     cooldown: 90.0
@@ -508,7 +650,7 @@ loot:
     rarity-chances:
       SCROLL: 0.2
       VENDOR: 0.1
-      TRAINER: 0.05
+      TRAINER: 0.02
       PD: 0.005
 
 ability-costs:
@@ -523,24 +665,23 @@ ability-costs:
   abyss_cutter: 3800
   gale_zone: 3600
   spider_trap: 3400
-  thunderclap_dash: 0
-  sky_walk: 0
-  spirit_bullet: 0
-  iron_body: 0
-  observation_sense: 0
-  thunder_pierce: 0
 
 trainers:
   spawn-radius: 1500
 
-pd-ability-costs:
-  moon_sever: 8
-  inferno_nova: 8
-  judgment_bolt: 8
-  annihilation_punch: 10
-  dragon_gods_fist: 10
-  full_moon_typhoon: 12
-  cursed_armor: 6
+pd-shop:
+  stock-size: 9
+  per-item-stock: 1
+
+  # epics + legendaries rotate in PD vendor
+  weights:
+    epic: 80
+    legendary: 20
+
+  token-costs:
+    epic-min: 3
+    epic-max: 5
+    legendary: 12
 
 rewards:
   kills:
@@ -559,6 +700,15 @@ pd-event:
   min-participation-minutes: 10
   kill-tokens: 1
   winner-tokens: 3
+
+  # Any-time-of-day auto start based on online players (safe if unused by older code)
+  auto-start:
+    enabled: true
+    min-online: 10
+    check-period-seconds: 60
+    min-gap-minutes: 60
+    warmup-seconds: 10
+
   schedule:
     enabled: true
     min-events-per-day: 1
@@ -572,42 +722,9 @@ kill-reward:
   cooldown-ms: 300000
 
 trainer-abilities:
-  ichigo:
-    min-level: 5
-    teachesAbilities:
-      - soru_step
-      - thunderclap_dash
-      - crescent_moon_arc
-      - getsu_wave
-      - breathing_focus
-      - observation_sense
-
-  ace:
-    min-level: 10
-    teachesAbilities:
-      - fire_fist
-      - exploding_blood_burst
-      - shockwave_roar
-      - thunder_beam
-      - chakra_renewal
-      - ki_barrier
-
-  kokushibo:
-    min-level: 15
-    teachesAbilities:
-      - cursed_black_flash
-      - crescent_typhoon_slash
-      - wind_typhoon_slash
-      - shadow_guard
-      - cursed_pulse
-      - shadow_bind
-
-  luffy:
-    min-level: 8
-    teachesAbilities:
-      - sky_walk
-      - ki_blast_barrage
-      - thunder_pierce
-      - iron_body
-      - water_parry
-      - beast_instinct
+  auto-fill-rares: true
+  rares-per-trainer: 6
+  include-movement-rares: true
+  include-defense-rares: true
+  include-utility-rares: true
+  include-damage-rares: true

@@ -304,34 +304,13 @@ public class AbilityManager {
 
         ItemStack item = new ItemStack(Material.ENCHANTED_BOOK, amount);
         ItemMeta meta = item.getItemMeta();
+        if (meta == null) return item;
 
         // Display name
-        String display = ChatColor.LIGHT_PURPLE + "Ability Scroll: " +
-                ChatColor.AQUA + ability.getDisplayName();
-        meta.setDisplayName(display);
+        meta.setDisplayName(ChatColor.LIGHT_PURPLE + "Ability Scroll: " + ChatColor.AQUA + ability.getDisplayName());
 
-        // Lore
-        List<String> lore = new ArrayList<>();
-
-        // Short description
-        lore.add(ChatColor.GRAY + "" + ChatColor.ITALIC + typeDescription(ability));
-        lore.add("");
-
-        // Rarity & type
-        AbilityTier tier = ability.getTier();
-        String rarityText = rarityLabel(tier);
-        ChatColor rarityCol = rarityColor(tier);
-        String typeText = typeLabel(ability.getType());
-
-        lore.add(ChatColor.DARK_GRAY + "Rarity: " + rarityCol + rarityText);
-        lore.add(ChatColor.DARK_GRAY + "Type: " + ChatColor.GREEN + typeText);
-        lore.add("");
-
-        // Use info
-        lore.add(ChatColor.YELLOW + "Right-click " + ChatColor.GRAY + "to learn this ability.");
-        lore.add(ChatColor.DARK_GRAY + "ID: " + ChatColor.GRAY + ability.getId().toLowerCase(Locale.ROOT));
-
-        meta.setLore(lore);
+        // Lore (ONLY your requested format: description, rarity, type)
+        meta.setLore(AbilityLoreUtil.scrollLore(plugin, ability));
 
         // PDC tag
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
@@ -340,6 +319,7 @@ public class AbilityManager {
         item.setItemMeta(meta);
         return item;
     }
+
 
     public Ability getAbilityFromScroll(ItemStack stack) {
         if (stack == null || stack.getType() == Material.AIR) return null;

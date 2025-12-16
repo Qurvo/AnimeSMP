@@ -1,461 +1,369 @@
 package com.animesmp.core.pd;
 
 import com.animesmp.core.AnimeSMPPlugin;
-import com.animesmp.core.level.LevelManager;
-import com.animesmp.core.player.PlayerProfile;
-import com.animesmp.core.player.PlayerProfileManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.boss.BarColor;
-import org.bukkit.boss.BarStyle;
-import org.bukkit.boss.BossBar;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.LocalDate;
-import java.util.UUID;
-import java.util.Random;
+import java.time.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
-
-/**
- * Global Perma Death manager.
- *
- * - When active:
- *   * All XP is multiplied by getXpMultiplier()
- *   * Yen kill share uses PD / non-PD multipliers in CombatRewardListener
- *   * Any player with level >= minWipeLevel is wiped on ANY death.
- *   * Bossbar + title are shown.
- *
- * - No /pdjoin: PD is GLOBAL.
- *
- * - Admin:
- *   * /pdadmin start → start PD now for a configured duration
- *   * /pdadmin stop  → stop PD immediately
- */
 public class PdEventManager {
 
     private final AnimeSMPPlugin plugin;
-    private final PlayerProfileManager profiles;
-    private final LevelManager levelManager;
-
-    // Current PD state
-    private boolean active = false;
-    private long endTimeMs = 0L;
-
-    // Config-driven knobs
-    private final int minWipeLevel;
-    private final double xpMultiplier;
-    private final int defaultDurationMinutes;
-
-    // Simple daily scheduling (optional)
-    private final boolean autoEnabled;
-    private final int autoMinHour;            // inclusive
-    private final int autoMaxHour;            // inclusive
-    private final int autoMinDurationMinutes; // for auto events
-    private final int autoMaxDurationMinutes;
-    private final int autoMinPlayers;
-
-    // Persistence
     private final File stateFile;
-    private final FileConfiguration stateCfg;
-    private final Random random = new Random();
 
+    private boolean active = false;
+    private long activeUntilMs = 0L;
+    private long lastEndMs = 0L;
 
-    // Visuals
-    private BossBar bossBar;
-    private int schedulerTaskId = -1;
+    // config cache
+    private int minWipeLevel = 20;
+    private double xpMultiplier = 2.0;
+    private double yenMultiplier = 2.0;
 
-    // For "once per day" auto events
-    private LocalDate lastAutoDay = null;
+    private boolean scheduleEnabled = true;
+    private int minEventsPerDay = 1;
+    private int maxEventsPerDay = 2;
+    private int minDurationMinutes = 60;
+    private int maxDurationMinutes = 120;
+    private int minGapMinutes = 60;
+    private int maxGapMinutes = 180;
+
+    private ZoneId zone = ZoneId.systemDefault();
+
+    // daily plan (persisted)
+    private LocalDate plannedDate;
+    private final List<Instant> plannedStarts = new ArrayList<>();
+    private final List<Integer> plannedDurations = new ArrayList<>();
 
     public PdEventManager(AnimeSMPPlugin plugin) {
         this.plugin = plugin;
-        this.profiles = plugin.getProfileManager();
-        this.levelManager = plugin.getLevelManager();
-
-        File dataFolder = plugin.getDataFolder();
-        if (!dataFolder.exists()) dataFolder.mkdirs();
-        this.stateFile = new File(dataFolder, "pd_state.yml");
-        this.stateCfg = YamlConfiguration.loadConfiguration(stateFile);
-
-        FileConfiguration cfg = plugin.getConfig();
-
-        // Core PD config
-        this.minWipeLevel = cfg.getInt("pd.min-wipe-level", 20);
-        this.xpMultiplier = cfg.getDouble("pd.xp-multiplier", 2.0);
-        this.defaultDurationMinutes = cfg.getInt("pd.default-duration-minutes", 90);
-
-        // Auto scheduling (1 event per day, within a window)
-        this.autoEnabled = cfg.getBoolean("pd.auto.enabled", true);
-        this.autoMinHour = cfg.getInt("pd.auto.min-hour", 18); // 18:00
-        this.autoMaxHour = cfg.getInt("pd.auto.max-hour", 23); // 23:00
-        this.autoMinDurationMinutes = cfg.getInt("pd.auto.min-duration-minutes", 60);
-        this.autoMaxDurationMinutes = cfg.getInt("pd.auto.max-duration-minutes", 120);
-        this.autoMinPlayers = cfg.getInt("pd.auto.min-players", 4);
-
+        this.stateFile = new File(plugin.getDataFolder(), "pd_state.yml");
+        reloadFromConfig();
         loadState();
-        restoreIfActive();
-        startAutoTask();
+        startTasks();
     }
 
-    // ------------------------------------------------------------------------
-    // PUBLIC API
-    // ------------------------------------------------------------------------
+    public void reloadFromConfig() {
+        this.minWipeLevel = plugin.getConfig().getInt("pd-event.min-wipe-level", 20);
+        this.xpMultiplier = plugin.getConfig().getDouble("pd-event.xp-multiplier", 2.0);
+        this.yenMultiplier = plugin.getConfig().getDouble("pd-event.yen-multiplier", 2.0);
+
+        this.scheduleEnabled = plugin.getConfig().getBoolean("pd-event.schedule.enabled", true);
+        this.minEventsPerDay = plugin.getConfig().getInt("pd-event.schedule.min-events-per-day", 1);
+        this.maxEventsPerDay = plugin.getConfig().getInt("pd-event.schedule.max-events-per-day", 2);
+        this.minDurationMinutes = plugin.getConfig().getInt("pd-event.schedule.min-duration-minutes", 60);
+        this.maxDurationMinutes = plugin.getConfig().getInt("pd-event.schedule.max-duration-minutes", 120);
+        this.minGapMinutes = plugin.getConfig().getInt("pd-event.schedule.min-gap-minutes", 60);
+        this.maxGapMinutes = plugin.getConfig().getInt("pd-event.schedule.max-gap-minutes", 180);
+
+        String zoneId = plugin.getConfig().getString("vendor-reset.zone", "Europe/Lisbon");
+        try { this.zone = ZoneId.of(zoneId); } catch (Exception e) { this.zone = ZoneId.systemDefault(); }
+    }
+
+    private void startTasks() {
+        // every 30 seconds: handle scheduling + end
+        Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 40L, 20L * 30L);
+    }
+
+    private void tick() {
+        if (!plugin.getConfig().getBoolean("pd-event.enabled", true)) return;
+
+        // end if needed
+        if (active && System.currentTimeMillis() >= activeUntilMs) {
+            stopInternal(false);
+        }
+
+        if (!scheduleEnabled) return;
+        if (active) return;
+
+        ensureTodayPlanned();
+
+        long now = System.currentTimeMillis();
+        int idx = nextPlannedIndex(now);
+        if (idx == -1) return;
+
+        long startMs = plannedStarts.get(idx).toEpochMilli();
+        if (now >= startMs) {
+            int durMin = plannedDurations.get(idx);
+            startInternal(durMin * 60_000L, false);
+
+            // remove the one we just used so it doesn't re-trigger if tick runs again quickly
+            plannedStarts.remove(idx);
+            plannedDurations.remove(idx);
+            saveState();
+        }
+    }
+
+    private void ensureTodayPlanned() {
+        LocalDate today = ZonedDateTime.now(zone).toLocalDate();
+        if (plannedDate != null && plannedDate.equals(today) && !plannedStarts.isEmpty()) return;
+
+        // if plannedDate is today but list empty, we don't need new ones
+        if (plannedDate != null && plannedDate.equals(today) && plannedStarts.isEmpty()) return;
+
+        planToday(today);
+        saveState();
+    }
+
+    private void planToday(LocalDate day) {
+        plannedDate = day;
+        plannedStarts.clear();
+        plannedDurations.clear();
+
+        int events = rand(minEventsPerDay, maxEventsPerDay);
+
+        ZonedDateTime startOfDay = day.atStartOfDay(zone);
+
+        // Pick first start somewhere in the day, leaving headroom for duration+gap+duration
+        int maxHeadroom = Math.max(0, (24 * 60) - (maxDurationMinutes + maxGapMinutes + maxDurationMinutes));
+        int firstStartMin = rand(0, maxHeadroom);
+        ZonedDateTime cur = startOfDay.plusMinutes(firstStartMin);
+
+        for (int i = 0; i < events; i++) {
+            int dur = rand(minDurationMinutes, Math.max(minDurationMinutes, maxDurationMinutes));
+
+            plannedStarts.add(cur.toInstant());
+            plannedDurations.add(dur);
+
+            if (i < events - 1) {
+                int gap = rand(minGapMinutes, Math.max(minGapMinutes, maxGapMinutes));
+                cur = cur.plusMinutes(dur + gap);
+
+                // prevent scheduling beyond end of day
+                if (cur.toLocalTime().isAfter(LocalTime.of(23, 30))) break;
+            }
+        }
+    }
+
+    private int nextPlannedIndex(long nowMs) {
+        // If we missed a start during downtime, start the most recent one (immediately).
+        int missedIdx = -1;
+        long missedStart = Long.MIN_VALUE;
+
+        int futureIdx = -1;
+        long futureStart = Long.MAX_VALUE;
+
+        for (int i = 0; i < plannedStarts.size(); i++) {
+            long s = plannedStarts.get(i).toEpochMilli();
+            if (s <= nowMs) {
+                if (s > missedStart) {
+                    missedStart = s;
+                    missedIdx = i;
+                }
+            } else {
+                if (s < futureStart) {
+                    futureStart = s;
+                    futureIdx = i;
+                }
+            }
+        }
+        return missedIdx != -1 ? missedIdx : futureIdx;
+    }
+
+    private int rand(int min, int max) {
+        if (max < min) return min;
+        return ThreadLocalRandom.current().nextInt(min, max + 1);
+    }
+
+    // -------------------- PUBLIC API --------------------
 
     public boolean isActive() {
-        return active;
-    }
-
-    /**
-     * Used by LevelManager: XP is multiplied by this.
-     */
-    public double getXpMultiplier() {
-        return active ? xpMultiplier : 1.0;
-    }
-
-    /**
-     * Should this player be wiped on death while PD is active?
-     * (Only level >= minWipeLevel.)
-     */
-    public boolean shouldWipeOnDeath(Player player) {
         if (!active) return false;
-        int level = levelManager.getLevel(player);
-        return level >= minWipeLevel;
-    }
-
-    /**
-     * Admin manual start: start PD now using default duration.
-     */
-    public void adminStartNow() {
-        int minutes = Math.max(10, defaultDurationMinutes);
-        startPdWindow(minutes * 60_000L, true);
-    }
-
-    /**
-     * Admin manual stop.
-     */
-    public void adminStopNow() {
-        if (!active) {
-            Bukkit.broadcastMessage(ChatColor.RED + "[PD] Perma Death is not active.");
-            return;
+        if (System.currentTimeMillis() >= activeUntilMs) {
+            stopInternal(false);
+            return false;
         }
-        Bukkit.broadcastMessage(ChatColor.RED + "[PD] Perma Death has been forcefully disabled by an admin.");
-        stopPdInternal(false);
+        return true;
     }
 
-    /**
-     * Called from PdEventListener when a player dies.
-     * Only handles PD wipe logic & small PD messaging.
-     * XP/yen rewards & kill cooldown are handled elsewhere.
-     */
-    public void handleDeath(Player victim, Player killer) {
-        if (!active) return;
-
-        // Wipe check
-        if (shouldWipeOnDeath(victim)) {
-            wipePlayer(victim);
-
-            // Kick with message
-            victim.kickPlayer(ChatColor.DARK_RED + "" + ChatColor.BOLD +
-                    "You died during Perma Death.\n" +
-                    ChatColor.RED + "Rejoin to start a new adventure.");
-        }
-
-        // Optional PD broadcast
-        if (killer != null) {
-            Bukkit.broadcastMessage(ChatColor.DARK_PURPLE + "[PD] " +
-                    ChatColor.GOLD + killer.getName() +
-                    ChatColor.LIGHT_PURPLE + " has slain " +
-                    ChatColor.RED + victim.getName() +
-                    ChatColor.LIGHT_PURPLE + " during Perma Death.");
-        } else {
-            Bukkit.broadcastMessage(ChatColor.DARK_PURPLE + "[PD] " +
-                    ChatColor.RED + victim.getName() +
-                    ChatColor.LIGHT_PURPLE + " has fallen during Perma Death.");
-        }
+    public long getRemainingMs() {
+        if (!isActive()) return 0L;
+        return Math.max(0L, activeUntilMs - System.currentTimeMillis());
     }
 
-    /**
-     * Called from PdEventListener on quit. Currently no special logic,
-     * but we keep it for compatibility / future use.
-     */
-    public void handleQuit(Player player) {
-        // No-op for now (PD is global, not per-participant).
-    }
-
-    /**
-     * For PlayerConnectionListener: if PD is active when a player joins,
-     * show them the same intro message.
-     */
-    public void handleJoin(Player player) {
-        if (!active) return;
-        showIntroTo(player);
-        addPlayerToBossbar(player);
-    }
-
-    // For commands
     public int getMinWipeLevel() {
         return minWipeLevel;
     }
 
-    public long getRemainingMs() {
-        if (!active) return 0L;
-        long now = System.currentTimeMillis();
-        return Math.max(0L, endTimeMs - now);
+    public double getXpMultiplier() {
+        return xpMultiplier;
     }
 
-    // ------------------------------------------------------------------------
-    // INTERNAL: START / STOP
-    // ------------------------------------------------------------------------
+    public double getYenMultiplier() {
+        return yenMultiplier;
+    }
 
-    private void startPdWindow(long durationMs, boolean manual) {
-        if (active) {
-            // already active
-            return;
-        }
+    /**
+     * Returns the next PD start time (epoch millis) that the scheduler would be willing to trigger.
+     *
+     * <p>This exists primarily for admin/status output (e.g., /pdadmin status). The PD scheduler
+     * in this build is driven by the daily planned schedule (pd-event.schedule.*). We therefore
+     * expose the next planned start (or the most-recent missed start, if the server was offline),
+     * which matches the behaviour of {@link #tick()}.
+     *
+     * @return epoch millis of the next eligible start, or -1 if no schedule is available.
+     */
+    public long getNextEligibleAutoStartMs() {
+        if (!scheduleEnabled) return -1L;
+        if (!plugin.getConfig().getBoolean("pd-event.enabled", true)) return -1L;
+        if (active) return -1L;
+
+        ensureTodayPlanned();
+        if (plannedStarts.isEmpty()) return -1L;
+
+        int idx = nextPlannedIndex(System.currentTimeMillis());
+        if (idx < 0 || idx >= plannedStarts.size()) return -1L;
+        return plannedStarts.get(idx).toEpochMilli();
+    }
+
+    public void adminStartNow() {
+        int durMin = Math.max(1, minDurationMinutes);
+        int durMax = Math.max(durMin, maxDurationMinutes);
+        int pick = rand(durMin, durMax);
+        startInternal(pick * 60_000L, false);
+    }
+
+    public void adminStopNow() {
+        stopInternal(true);
+    }
+
+    // -------------------- START / STOP --------------------
+
+    private void startInternal(long durationMs, boolean silent) {
+        if (active) return;
 
         active = true;
-        long now = System.currentTimeMillis();
-        endTimeMs = now + durationMs;
+        activeUntilMs = System.currentTimeMillis() + Math.max(10_000L, durationMs);
 
         saveState();
 
-        // Intro for all online players
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            showIntroTo(p);
+        if (!silent) {
+            broadcast(ChatColor.DARK_RED + "====== " + ChatColor.RED + "PERMA DEATH ACTIVE" + ChatColor.DARK_RED + " ======");
+            broadcast(ChatColor.GRAY + "If you die during this window, you lose everything.");
+            broadcast(ChatColor.AQUA + "Rewards: " + ChatColor.YELLOW + xpMultiplier + "x XP, " + yenMultiplier + "x Yen");
         }
-
-        // Boss bar
-        createOrUpdateBossbar();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            addPlayerToBossbar(p);
-        }
-
-        String src = manual ? "by an admin" : "automatically";
-        Bukkit.broadcastMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD +
-                "[PD] Permanent Death has begun (" + src + ")!");
-        Bukkit.broadcastMessage(ChatColor.RED + "All XP & gains are boosted. " +
-                "Players level " + ChatColor.YELLOW + minWipeLevel + ChatColor.RED +
-                " or higher will be wiped on death!");
-
-        // Per-tick updater
-        startEndWatcherTask();
     }
 
-    private void stopPdInternal(boolean fromAutoEnd) {
+    private void stopInternal(boolean silent) {
+        if (!active) return;
+
         active = false;
-        endTimeMs = 0L;
+        activeUntilMs = 0L;
+        lastEndMs = System.currentTimeMillis();
 
         saveState();
 
-        if (bossBar != null) {
-            bossBar.setVisible(false);
-            bossBar.removeAll();
-        }
-
-        if (schedulerTaskId != -1) {
-            Bukkit.getScheduler().cancelTask(schedulerTaskId);
-            schedulerTaskId = -1;
-        }
-
-        if (fromAutoEnd) {
-            Bukkit.broadcastMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD +
-                    "[PD] Permanent Death has ended.");
+        if (!silent) {
+            broadcast(ChatColor.DARK_RED + "====== " + ChatColor.RED + "PERMA DEATH ENDED" + ChatColor.DARK_RED + " ======");
+            broadcast(ChatColor.GRAY + "Perma Death is now inactive.");
         }
     }
 
-    private void showIntroTo(Player p) {
-        p.sendTitle(
-                ChatColor.DARK_RED + "" + ChatColor.BOLD + "Permanent Death is ON",
-                ChatColor.RED + "Everything is 2x. " + ChatColor.DARK_RED + "Dying gets you wiped.",
-                10, 60, 10
-        );
-        p.sendMessage(ChatColor.DARK_RED + "" + ChatColor.BOLD +
-                "[PD] " + ChatColor.RED +
-                "Permanent Death is active. Level " + ChatColor.YELLOW + minWipeLevel +
-                ChatColor.RED + "+ players are wiped on death.");
-    }
-
-    // ------------------------------------------------------------------------
-    // BOSSBAR
-    // ------------------------------------------------------------------------
-
-    private void createOrUpdateBossbar() {
-        if (bossBar == null) {
-            bossBar = Bukkit.createBossBar(
-                    ChatColor.DARK_RED + "" + ChatColor.BOLD + "PERMA DEATH ACTIVE",
-                    BarColor.RED,
-                    BarStyle.SOLID
-            );
-        } else {
-            bossBar.setTitle(ChatColor.DARK_RED + "" + ChatColor.BOLD + "PERMA DEATH ACTIVE");
-        }
-        bossBar.setVisible(true);
-        bossBar.setProgress(1.0); // we don't show the timer, so just full.
-    }
-
-    private void addPlayerToBossbar(Player p) {
-        if (bossBar == null) return;
-        if (!bossBar.getPlayers().contains(p)) {
-            bossBar.addPlayer(p);
-        }
-    }
-
-    private void startEndWatcherTask() {
-        if (schedulerTaskId != -1) {
-            Bukkit.getScheduler().cancelTask(schedulerTaskId);
-        }
-
-        schedulerTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(
-                plugin,
-                () -> {
-                    if (!active) return;
-                    long remaining = getRemainingMs();
-                    if (remaining <= 0L) {
-                        stopPdInternal(true);
-                    }
-                    // we keep bossbar progress at 1.0 on purpose:
-                    // no visible timer so players can't meta-time PD.
-                },
-                20L, 20L
-        );
-    }
-
-    // ------------------------------------------------------------------------
-    // WIPE LOGIC
-    // ------------------------------------------------------------------------
-
-    private void wipePlayer(Player player) {
-        UUID id = player.getUniqueId();
-        PlayerProfile profile = profiles.getProfile(player);
-
-        // Reset profile to default fresh state
-        PlayerProfile fresh = new PlayerProfile(id);
-
-        // Copy over the new fresh profile
-        // Easiest: manually copy fields you care about OR overwrite file.
-        // We'll just save the fresh profile and replace in manager map.
-
-        profiles.saveProfile(fresh);
-        // Overwrite the in-memory cache
-        // (the manager uses computeIfAbsent + map, but we don't have direct map access.
-        //  simplest approach: set core fields on existing profile)
-        profile.setLevel(fresh.getLevel());
-        profile.setXp(fresh.getXp());
-        profile.setSkillPoints(fresh.getSkillPoints());
-        profile.setConPoints(fresh.getConPoints());
-        profile.setStrPoints(fresh.getStrPoints());
-        profile.setTecPoints(fresh.getTecPoints());
-        profile.setDexPoints(fresh.getDexPoints());
-        profile.setTrainingLevel(fresh.getTrainingLevel());
-        profile.setTrainingXp(fresh.getTrainingXp());
-        profile.setStaminaCap(fresh.getStaminaCap());
-        profile.setStaminaCurrent(fresh.getStaminaCurrent());
-        profile.setStaminaRegenPerSecond(fresh.getStaminaRegenPerSecond());
-        profile.setYen(fresh.getYen());
-        profile.setPdTokens(fresh.getPdTokens());
-        profile.getUnlockedAbilities().clear();
-        profile.getBoundAbilityIds().clear();
-        profile.setSelectedSlot(1);
-
-        profiles.saveProfile(profile);
-    }
-
-    // ------------------------------------------------------------------------
-    // STATE PERSISTENCE
-    // ------------------------------------------------------------------------
+    // -------------------- PERSISTENCE --------------------
 
     private void loadState() {
-        this.active = stateCfg.getBoolean("active", false);
-        this.endTimeMs = stateCfg.getLong("endTimeMs", 0L);
-
-        String lastDay = stateCfg.getString("lastAutoDay", null);
-        if (lastDay != null) {
-            try {
-                lastAutoDay = LocalDate.parse(lastDay);
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    private void saveState() {
-        stateCfg.set("active", active);
-        stateCfg.set("endTimeMs", endTimeMs);
-        if (lastAutoDay != null) {
-            stateCfg.set("lastAutoDay", lastAutoDay.toString());
-        }
-        try {
-            stateCfg.save(stateFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to save pd_state.yml");
-            e.printStackTrace();
-        }
-    }
-
-    private void restoreIfActive() {
-        if (!active) return;
-        long now = System.currentTimeMillis();
-        if (endTimeMs <= now) {
-            // Expired while server was offline
-            active = false;
-            endTimeMs = 0L;
-            saveState();
+        if (!stateFile.exists()) {
+            ensureTodayPlanned();
             return;
         }
 
-        long remaining = endTimeMs - now;
-        plugin.getLogger().info("[PD] Restoring active Perma Death window (" + (remaining / 1000) + "s left).");
+        try {
+            YamlConfiguration yml = YamlConfiguration.loadConfiguration(stateFile);
 
-        // Recreate visuals & watcher
-        createOrUpdateBossbar();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            addPlayerToBossbar(p);
-            showIntroTo(p);
-        }
-        startEndWatcherTask();
-    }
+            this.active = yml.getBoolean("active", false);
+            this.activeUntilMs = yml.getLong("activeUntilMs", 0L);
+            this.lastEndMs = yml.getLong("lastEndMs", 0L);
 
-    // ------------------------------------------------------------------------
-    // SIMPLE AUTO SCHEDULER (1 event per day max)
-    // ------------------------------------------------------------------------
+            String dateStr = yml.getString("plannedDate", null);
+            this.plannedDate = (dateStr == null || dateStr.isBlank()) ? null : LocalDate.parse(dateStr);
 
-    private void startAutoTask() {
-        if (!autoEnabled) return;
+            plannedStarts.clear();
+            plannedDurations.clear();
 
-        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            if (active) return; // already running
+            List<String> starts = yml.getStringList("plannedStarts");
+            List<Integer> durs = yml.getIntegerList("plannedDurations");
 
-            LocalDate today = LocalDate.now();
-            if (lastAutoDay != null && lastAutoDay.equals(today)) {
-                return; // already did an auto PD today
+            for (String s : starts) {
+                try { plannedStarts.add(Instant.parse(s)); } catch (Exception ignored) {}
+            }
+            plannedDurations.addAll(durs);
+
+            // If PD expired while server offline, clean it
+            if (active && System.currentTimeMillis() >= activeUntilMs) {
+                active = false;
+                activeUntilMs = 0L;
             }
 
-            int hour = java.time.LocalTime.now().getHour();
-            if (hour < autoMinHour || hour > autoMaxHour) return;
-
-            if (Bukkit.getOnlinePlayers().size() < autoMinPlayers) return;
-
-            long durationMin = autoMinDurationMinutes;
-            long durationMax = autoMaxDurationMinutes;
-            if (durationMax < durationMin) durationMax = durationMin;
-
-            long durationMinutes;
-            if (durationMax == durationMin) {
-                durationMinutes = durationMin;
-            } else {
-                long diff = durationMax - durationMin;
-                durationMinutes = durationMin + random.nextInt((int) diff + 1);
-            }
-
-            lastAutoDay = today;
+            // Ensure we have a plan for today
+            ensureTodayPlanned();
             saveState();
 
-            startPdWindow(durationMinutes * 60_000L, false);
+        } catch (Exception e) {
+            plannedDate = null;
+            plannedStarts.clear();
+            plannedDurations.clear();
+            ensureTodayPlanned();
+            saveState();
+        }
+    }
 
+    public void saveState() {
+        try {
+            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
 
-        }, 20L * 60L, 20L * 60L); // check every 60s
+            YamlConfiguration yml = new YamlConfiguration();
+            yml.set("active", active);
+            yml.set("activeUntilMs", activeUntilMs);
+            yml.set("lastEndMs", lastEndMs);
+
+            yml.set("plannedDate", plannedDate != null ? plannedDate.toString() : null);
+
+            List<String> starts = new ArrayList<>();
+            for (Instant i : plannedStarts) starts.add(i.toString());
+
+            yml.set("plannedStarts", starts);
+            yml.set("plannedDurations", plannedDurations);
+
+            yml.save(stateFile);
+        } catch (IOException ignored) {}
+    }
+
+    // ---------------------------------------------------------------------
+    // Listener compatibility (PdEventListener expects these methods)
+    // ---------------------------------------------------------------------
+
+    public void handleDeath(Player dead, Player killer) {
+        if (dead == null) return;
+        if (!isActive()) return;
+
+        // TODO: hook into your existing PD penalty logic.
+        // Keep empty for now so it compiles without guessing your wipe system.
+    }
+
+    public void handleQuit(Player player) {
+        // Optional: participation tracking if you have it
+    }
+
+    public void handleJoin(Player player) {
+        // Optional: notify on join if active
+        if (player != null && isActive()) {
+            player.sendMessage(ChatColor.RED + "Perma Death is currently ACTIVE.");
+        }
+    }
+
+    // -------------------- UTIL --------------------
+
+    private void broadcast(String msg) {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(msg);
+        }
+        Bukkit.getLogger().info(ChatColor.stripColor(msg));
     }
 }

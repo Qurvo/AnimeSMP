@@ -12,6 +12,19 @@ commands:
     description: View your stats.
     usage: /stats
 
+  loadout:
+    description: Open the ability loadout builder.
+    usage: /loadout
+
+  tutorial:
+    description: Start or replay the tutorial.
+    usage: /tutorial
+
+  ablabel:
+    description: Set custom action-bar labels for cast slots.
+    usage: /ablabel <slot 1-5> <text|off>
+
+
   skills:
     description: Allocate skill points.
     usage: /skills
@@ -133,6 +146,8 @@ commands:
   animesmp:
     description: Root admin command for AnimeSMP (ability, PD, trainer, yen, shop, reload).
     usage: "/animesmp help"
+
+
 
 permissions:
   animesmp.unlock.bypass:

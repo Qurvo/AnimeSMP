@@ -66,6 +66,12 @@ public class TrainerNpcListener implements Listener {
                         "Show me your resolve.");
                 break;
         }
+        // Tutorial step advancement
+        if (plugin.getTutorialManager() != null) {
+            plugin.getTutorialManager().handleNpcInteraction(player, "TRAINER");
+        }
+
+
 
         // Open the trainer quest GUI for this trainer
         questManager.openTrainerGui(player, trainerId);

@@ -155,13 +155,16 @@ public class VendorListener implements Listener {
     private void handlePdVendorClick(Player player, ItemStack clicked) {
         if (!clicked.hasItemMeta() || clicked.getItemMeta().getDisplayName() == null) return;
 
-        String display = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
-        Ability ability = registry.getAbilityByDisplay(display);
+        Ability ability = plugin.getAbilityManager().getAbilityFromScroll(clicked);
+        if (ability == null) {
+            String display = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
+            ability = registry.getAbilityByDisplay(display);
+        }
         if (ability == null) return;
 
-        // Delegate to PdShopGuiManager's purchase logic
         pdGui.handlePurchase(player, ability);
     }
+
 
     @EventHandler
     public void onClose(InventoryCloseEvent e) {

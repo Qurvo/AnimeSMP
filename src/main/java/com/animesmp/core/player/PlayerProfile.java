@@ -2,11 +2,7 @@ package com.animesmp.core.player;
 
 import com.animesmp.core.ability.Ability;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class PlayerProfile {
 
@@ -35,7 +31,7 @@ public class PlayerProfile {
     private int yen;
     private int pdTokens;
 
-    // Equipped abilities
+    // Equipped abilities (legacy)
     private Ability movementAbility;
     private Ability damageAbility1;
     private Ability damageAbility2;
@@ -47,8 +43,14 @@ public class PlayerProfile {
     private int activeTrainerQuestProgress;
     private final Set<String> completedTrainerQuests = new HashSet<>();
 
-    // Daily rotating vendor purchases
-    private Set<String> purchasedToday = new HashSet<>();
+    // Tutorial
+    private boolean tutorialCompleted = false;
+
+    // Action bar labels
+    private final Map<Integer, String> actionBarLabels = new HashMap<>();
+
+    // Daily rotating vendor purchases (legacy, still saved)
+    private final Set<String> purchasedToday = new HashSet<>();
 
     // Bound abilities (slot → abilityId)
     private final Map<Integer, String> boundAbilityIds = new HashMap<>();
@@ -63,7 +65,8 @@ public class PlayerProfile {
         this.level = 1;
         this.xp = 0;
 
-        this.skillPoints = 0;
+        // IMPORTANT: start with 1 skill point at level 1
+        this.skillPoints = 1;
         this.conPoints = 0;
         this.strPoints = 0;
         this.tecPoints = 0;
@@ -82,8 +85,24 @@ public class PlayerProfile {
 
     public UUID getUuid() { return uuid; }
 
-    // ---------------- Trainer Quests ----------------
+    // Tutorial
+    public boolean isTutorialCompleted() { return tutorialCompleted; }
+    public void setTutorialCompleted(boolean tutorialCompleted) { this.tutorialCompleted = tutorialCompleted; }
 
+    // Action bar labels
+    public String getActionBarLabel(int slot) {
+        return actionBarLabels.get(slot);
+    }
+
+    public void setActionBarLabel(int slot, String text) {
+        if (slot < 1 || slot > 5) return;
+        if (text == null || text.trim().isEmpty()) actionBarLabels.remove(slot);
+        else actionBarLabels.put(slot, text);
+    }
+
+    public Map<Integer, String> getActionBarLabels() { return actionBarLabels; }
+
+    // Trainer Quests
     public String getActiveTrainerQuestId() { return activeTrainerQuestId; }
     public void setActiveTrainerQuestId(String id) { this.activeTrainerQuestId = id; }
 
@@ -100,16 +119,14 @@ public class PlayerProfile {
         if (id != null && !id.isEmpty()) completedTrainerQuests.add(id.toLowerCase());
     }
 
-    // ---------------- Level / XP ----------------
-
+    // Level / XP
     public int getLevel() { return level; }
     public void setLevel(int level) { this.level = level; }
 
     public int getXp() { return xp; }
     public void setXp(int xp) { this.xp = xp; }
 
-    // ---------------- Skill Points ----------------
-
+    // Skill Points
     public int getSkillPoints() { return skillPoints; }
     public void setSkillPoints(int value) { skillPoints = value; }
 
@@ -125,16 +142,14 @@ public class PlayerProfile {
     public int getDexPoints() { return dexPoints; }
     public void setDexPoints(int value) { dexPoints = value; }
 
-    // ---------------- Training ----------------
-
+    // Training
     public int getTrainingLevel() { return trainingLevel; }
     public void setTrainingLevel(int level) { trainingLevel = level; }
 
     public int getTrainingXp() { return trainingXp; }
     public void setTrainingXp(int xp) { trainingXp = xp; }
 
-    // ---------------- Stamina ----------------
-
+    // Stamina
     public int getStaminaCap() { return staminaCap; }
     public void setStaminaCap(int cap) { staminaCap = cap; }
 
@@ -144,16 +159,14 @@ public class PlayerProfile {
     public double getStaminaRegenPerSecond() { return staminaRegenPerSecond; }
     public void setStaminaRegenPerSecond(double value) { staminaRegenPerSecond = value; }
 
-    // ---------------- Currency ----------------
-
+    // Currency
     public int getYen() { return yen; }
     public void setYen(int value) { yen = value; }
 
     public int getPdTokens() { return pdTokens; }
     public void setPdTokens(int value) { pdTokens = value; }
 
-    // ---------------- Equipped Abilities ----------------
-
+    // Equipped Abilities (legacy)
     public Ability getMovementAbility() { return movementAbility; }
     public void setMovementAbility(Ability a) { movementAbility = a; }
 
@@ -169,17 +182,10 @@ public class PlayerProfile {
     public Ability getSupportAbility() { return supportAbility; }
     public void setSupportAbility(Ability a) { supportAbility = a; }
 
-    // ---------------- Ability Binding ----------------
-
+    // Ability Binding
     public Map<Integer, String> getBoundAbilityIds() { return boundAbilityIds; }
 
-    public void bindAbility(int slot, String id) {
-        setBoundAbilityId(slot, id);
-    }
-
-    public String getBoundAbilityId(int slot) {
-        return boundAbilityIds.get(slot);
-    }
+    public String getBoundAbilityId(int slot) { return boundAbilityIds.get(slot); }
 
     public void setBoundAbilityId(int slot, String id) {
         if (id == null || id.isEmpty()) boundAbilityIds.remove(slot);
@@ -192,9 +198,10 @@ public class PlayerProfile {
         selectedSlot = slot;
     }
 
-    // ---------------- Daily Vendor Purchases ----------------
-
+    // Daily Vendor Purchases (legacy)
     public Set<String> getPurchasedToday() { return purchasedToday; }
+
+    public void clearDailyPurchases() { purchasedToday.clear(); }
 
     public boolean hasPurchasedToday(String id) {
         return id != null && purchasedToday.contains(id.toLowerCase());
@@ -204,10 +211,7 @@ public class PlayerProfile {
         if (id != null && !id.isEmpty()) purchasedToday.add(id.toLowerCase());
     }
 
-    public void clearDailyPurchases() { purchasedToday.clear(); }
-
-    // ---------------- Unlocked Abilities ----------------
-
+    // Unlocked Abilities
     public Set<String> getUnlockedAbilities() { return unlockedAbilities; }
 
     public boolean hasUnlockedAbility(String id) {

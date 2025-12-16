@@ -1,135 +1,219 @@
 package com.animesmp.core.shop.rotation;
 
 import com.animesmp.core.AnimeSMPPlugin;
+import com.animesmp.core.ability.Ability;
+import org.bukkit.configuration.ConfigurationSection;
 
-import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-
-import java.io.File;
-import java.io.IOException;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PdStockManager {
 
     private final AnimeSMPPlugin plugin;
-    private final File file;
-    private FileConfiguration config;
 
-    // Map<abilityId, remainingStock>
-    private final Map<String, Integer> stock = new HashMap<>();
+    private LocalDate stockDay;
 
-    private long nextReset = 0L;
+    private final List<Ability> currentStock = new ArrayList<>();
+    private final Map<String, Integer> remaining = new ConcurrentHashMap<>();
+    private final Map<String, Integer> costs = new ConcurrentHashMap<>();
 
     public PdStockManager(AnimeSMPPlugin plugin) {
         this.plugin = plugin;
-        this.file = new File(plugin.getDataFolder(), "pd_stock.yml");
-
-        load();
-
-        Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L * 60L, 20L * 60L);
+        ensureTodaysStock();
     }
 
-    private void tick() {
-        long now = System.currentTimeMillis();
-        if (now >= nextReset) {
-            resetStock();
-        }
+    public synchronized List<Ability> getCurrentStock() {
+        ensureTodaysStock();
+        return Collections.unmodifiableList(currentStock);
     }
 
-    // Load from disk
-    private void load() {
-        if (!file.exists()) {
-            config = new YamlConfiguration();
-            resetStock();
-            return;
-        }
-
-        config = YamlConfiguration.loadConfiguration(file);
-
-        nextReset = config.getLong("nextReset", 0L);
-
-        stock.clear();
-
-        if (config.isConfigurationSection("stock")) {
-            for (String key : config.getConfigurationSection("stock").getKeys(false)) {
-                stock.put(key.toLowerCase(), config.getInt("stock." + key, 3));
-            }
-        }
+    public int getCostFor(Ability ability) {
+        if (ability == null) return 0;
+        return costs.getOrDefault(ability.getId(), defaultCostFor(ability));
     }
 
-    // Save to disk
-    private void save() {
-        config.set("nextReset", nextReset);
-
-        config.set("stock", null);
-        for (Map.Entry<String, Integer> e : stock.entrySet()) {
-            config.set("stock." + e.getKey(), e.getValue());
-        }
-
-        try {
-            config.save(file);
-        } catch (IOException e) {
-            plugin.getLogger().severe("[PD Stock] Failed to save pd_stock.yml");
-        }
+    public int getRemaining(Ability ability) {
+        if (ability == null) return 0;
+        return remaining.getOrDefault(ability.getId(), 0);
     }
 
-    private long computeNextReset() {
-        ZoneId zone = ZoneId.of("Europe/Lisbon");
-        ZonedDateTime now = ZonedDateTime.now(zone);
-        ZonedDateTime next = now.withHour(8).withMinute(0).withSecond(0).withNano(0);
-        if (!next.isAfter(now)) {
-            next = next.plusDays(1);
-        }
-        return next.toInstant().toEpochMilli();
+    public synchronized void decrementStock(Ability ability) {
+        if (ability == null) return;
+        String id = ability.getId();
+        int left = remaining.getOrDefault(id, 0);
+        if (left <= 0) return;
+        remaining.put(id, left - 1);
     }
 
-    public void resetStock() {
-        stock.clear();
-
-        // We don't know all PD abilities here, so abilities will be added lazily on access
-        nextReset = computeNextReset();
-
-        save();
+    public synchronized void forceResetNow() {
+        stockDay = null;
+        currentStock.clear();
+        remaining.clear();
+        costs.clear();
+        ensureTodaysStock();
     }
 
-    public int getStock(String abilityId) {
-        abilityId = abilityId.toLowerCase();
-        return stock.getOrDefault(abilityId, 3);
-    }
-
-    public void decreaseStock(String abilityId) {
-        abilityId = abilityId.toLowerCase();
-        int current = stock.getOrDefault(abilityId, 3);
-        current = Math.max(0, current - 1);
-        stock.put(abilityId, current);
-        save();
+    public void forceRefreshNow() {
+        forceResetNow();
     }
 
     /**
-     * Admin utility: force a stock reset immediately.
+     * For PD GUI: time until next daily refresh, using vendor-reset zone/hour/minute.
      */
-    public void forceResetNow() {
-        resetStock();
+    public String getFormattedTimeRemaining() {
+        Duration d = timeUntilNextReset();
+        long seconds = Math.max(0, d.getSeconds());
+        long h = seconds / 3600;
+        long m = (seconds % 3600) / 60;
+        long s = seconds % 60;
+        return String.format("%02dh %02dm %02ds", h, m, s);
     }
 
-    public String getFormattedTimeRemaining() {
-        long now = System.currentTimeMillis();
-        long remaining = Math.max(0L, nextReset - now);
+    // -------------------------------------------------------------------------
 
-        long totalSeconds = remaining / 1000L;
-        long hours = totalSeconds / 3600L;
-        long minutes = (totalSeconds % 3600L) / 60L;
-        long seconds = totalSeconds % 60L;
+    private synchronized void ensureTodaysStock() {
+        LocalDate today = LocalDate.now(getVendorZone());
+        if (stockDay != null && stockDay.equals(today) && !currentStock.isEmpty()) return;
 
-        if (hours > 0) {
-            return String.format("%dh %02dm", hours, minutes);
-        } else if (minutes > 0) {
-            return String.format("%dm %02ds", minutes, seconds);
-        } else {
-            return String.format("%ds", seconds);
+        stockDay = today;
+        rollNewStock();
+    }
+
+    private void rollNewStock() {
+        currentStock.clear();
+        remaining.clear();
+        costs.clear();
+
+        int stockSize = Math.max(6, plugin.getConfig().getInt("pd-shop.stock-size", 9));
+
+        int wEpic = Math.max(1, plugin.getConfig().getInt("pd-shop.weights.epic", 80));
+        int wLegendary = Math.max(0, plugin.getConfig().getInt("pd-shop.weights.legendary", 20));
+
+        int epicMin = plugin.getConfig().getInt("pd-shop.token-costs.epic-min", 3);
+        int epicMax = plugin.getConfig().getInt("pd-shop.token-costs.epic-max", 5);
+        int legendaryDefault = plugin.getConfig().getInt("pd-shop.token-costs.legendary", 12);
+
+        int perItemStock = Math.max(1, plugin.getConfig().getInt("pd-shop.per-item-stock", 1));
+
+        Map<String, Integer> perAbilityCosts = readIntMap("pd-ability-costs");
+
+        List<Ability> epicPool = new ArrayList<>();
+        List<Ability> legendaryPool = new ArrayList<>();
+
+        for (Ability a : plugin.getAbilityRegistry().getAllAbilities()) {
+            if (a == null || a.getTier() == null) continue;
+            String tier = a.getTier().name().toUpperCase(Locale.ROOT);
+
+            // Epics: TRAINER tier bucket
+            if (tier.contains("TRAINER")) {
+                epicPool.add(a);
+            }
+            // Legendaries: PD tier bucket
+            else if (tier.contains("PD")) {
+                legendaryPool.add(a);
+            }
         }
+
+        if (epicPool.isEmpty() && legendaryPool.isEmpty()) {
+            plugin.getLogger().warning("PdStockManager: No eligible abilities found for PD vendor stock. Pools are empty.");
+            return;
+        }
+
+        Random rng = new Random();
+        Set<String> picked = new HashSet<>();
+
+        int maxAttempts = 500;
+        int attempts = 0;
+
+        while (currentStock.size() < stockSize && attempts < maxAttempts) {
+            attempts++;
+
+            Ability chosen = weightedPick(rng, epicPool, legendaryPool, wEpic, wLegendary);
+            if (chosen == null) continue;
+            if (!picked.add(chosen.getId())) continue;
+
+            currentStock.add(chosen);
+
+            remaining.put(chosen.getId(), perItemStock);
+
+            int cost;
+            if (perAbilityCosts.containsKey(chosen.getId())) {
+                cost = perAbilityCosts.get(chosen.getId());
+            } else {
+                String tier = chosen.getTier().name().toUpperCase(Locale.ROOT);
+                if (tier.contains("TRAINER")) {
+                    int span = Math.max(1, (epicMax - epicMin + 1));
+                    cost = clamp(rng.nextInt(span) + epicMin, 1, 999);
+                } else if (tier.contains("PD")) {
+                    cost = legendaryDefault;
+                } else {
+                    cost = legendaryDefault;
+                }
+            }
+            costs.put(chosen.getId(), cost);
+        }
+
+        if (currentStock.isEmpty()) {
+            plugin.getLogger().warning("PdStockManager: Stock roll produced 0 items (attempts=" + attempts + "). Check pools and tiers.");
+        } else if (attempts >= maxAttempts) {
+            plugin.getLogger().warning("PdStockManager: Stock roll hit max attempts (" + maxAttempts + "). Pool may be too small for stock-size.");
+        }
+    }
+
+    private Ability weightedPick(Random rng, List<Ability> epicPool, List<Ability> legendaryPool, int wEpic, int wLegendary) {
+        if (legendaryPool.isEmpty()) return epicPool.isEmpty() ? null : epicPool.get(rng.nextInt(epicPool.size()));
+        if (epicPool.isEmpty()) return legendaryPool.get(rng.nextInt(legendaryPool.size()));
+
+        int total = Math.max(1, wEpic) + Math.max(0, wLegendary);
+        int roll = rng.nextInt(total);
+
+        if (roll < wEpic) return epicPool.get(rng.nextInt(epicPool.size()));
+        return legendaryPool.get(rng.nextInt(legendaryPool.size()));
+    }
+
+    private int defaultCostFor(Ability ability) {
+        if (ability == null || ability.getTier() == null) return 0;
+        String tier = ability.getTier().name().toUpperCase(Locale.ROOT);
+        if (tier.contains("TRAINER")) {
+            int epicMin = plugin.getConfig().getInt("pd-shop.token-costs.epic-min", 3);
+            int epicMax = plugin.getConfig().getInt("pd-shop.token-costs.epic-max", 5);
+            return clamp(epicMin, 1, epicMax);
+        }
+        if (tier.contains("PD")) {
+            return plugin.getConfig().getInt("pd-shop.token-costs.legendary", 12);
+        }
+        return plugin.getConfig().getInt("pd-shop.token-costs.legendary", 12);
+    }
+
+    private Map<String, Integer> readIntMap(String path) {
+        Map<String, Integer> out = new HashMap<>();
+        ConfigurationSection sec = plugin.getConfig().getConfigurationSection(path);
+        if (sec == null) return out;
+        for (String k : sec.getKeys(false)) {
+            out.put(k, sec.getInt(k));
+        }
+        return out;
+    }
+
+    private int clamp(int v, int min, int max) {
+        return Math.max(min, Math.min(max, v));
+    }
+
+    private ZoneId getVendorZone() {
+        String zone = plugin.getConfig().getString("vendor-reset.zone", "Europe/Lisbon");
+        try { return ZoneId.of(zone); } catch (Exception ignored) { return ZoneId.of("Europe/Lisbon"); }
+    }
+
+    private Duration timeUntilNextReset() {
+        ZoneId zone = getVendorZone();
+        int resetHour = plugin.getConfig().getInt("vendor-reset.hour", 8);
+        int resetMin = plugin.getConfig().getInt("vendor-reset.minute", 0);
+
+        ZonedDateTime now = ZonedDateTime.now(zone);
+        ZonedDateTime next = now.withHour(resetHour).withMinute(resetMin).withSecond(0).withNano(0);
+        if (!next.isAfter(now)) next = next.plusDays(1);
+
+        return Duration.between(now, next);
     }
 }

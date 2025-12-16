@@ -24,10 +24,18 @@ public class PlayerConnectionListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         profiles.handleJoin(event.getPlayer());
         stats.recalculateStats(event.getPlayer());
+
+        if (plugin.getUltimateBarManager() != null) {
+            plugin.getUltimateBarManager().handleJoin(event.getPlayer());
+        }
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         profiles.handleQuit(event.getPlayer());
+
+        if (plugin.getUltimateBarManager() != null) {
+            plugin.getUltimateBarManager().handleQuit(event.getPlayer());
+        }
     }
 }

@@ -63,6 +63,8 @@ public class PlayerProfileManager {
 
         profile.setSelectedSlot(cfg.getInt("selectedSlot", 1));
 
+        profile.setTutorialCompleted(cfg.getBoolean("tutorialCompleted", false));
+
         // Load daily rotating vendor purchases
         List<String> purchased = cfg.getStringList("purchasedToday");
         profile.clearDailyPurchases();
@@ -118,6 +120,7 @@ public class PlayerProfileManager {
         cfg.set("pdTokens", profile.getPdTokens());
 
         cfg.set("selectedSlot", profile.getSelectedSlot());
+        cfg.set("tutorialCompleted", profile.isTutorialCompleted());
 
         // Save daily rotating vendor purchases
         cfg.set("purchasedToday", new ArrayList<>(profile.getPurchasedToday()));

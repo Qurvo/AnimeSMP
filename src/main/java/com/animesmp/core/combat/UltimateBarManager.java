@@ -1,6 +1,9 @@
 package com.animesmp.core.combat;
 
 import com.animesmp.core.AnimeSMPPlugin;
+import com.animesmp.core.ability.Ability;
+import com.animesmp.core.ability.AbilityType;
+import com.animesmp.core.player.PlayerProfile;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.boss.BarColor;
@@ -34,12 +37,11 @@ public class UltimateBarManager {
     }
 
     public void start() {
-        // Smooth + constant updates
+        // Constant smooth updates, but bar visibility depends on having an ultimate bound
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 5L, 5L);
     }
 
     public void handleJoin(Player player) {
-        ensureBar(player);
         updateBar(player);
     }
 
@@ -101,6 +103,7 @@ public class UltimateBarManager {
 
     private void addCharge(Player player, double hearts, String key) {
         if (player == null || hearts <= 0) return;
+        if (!hasUltimateBound(player)) return;
 
         UUID id = player.getUniqueId();
         if (System.currentTimeMillis() < lockoutUntilMs.getOrDefault(id, 0L)) return;
@@ -129,6 +132,9 @@ public class UltimateBarManager {
     }
 
     private void addChargePct(Player player, double add) {
+        if (player == null) return;
+        if (!hasUltimateBound(player)) return;
+
         UUID id = player.getUniqueId();
         double next = Math.min(100.0, chargePct.getOrDefault(id, 0.0) + add);
         chargePct.put(id, next);
@@ -138,8 +144,9 @@ public class UltimateBarManager {
     }
 
     private void tick() {
+        if (!isEnabled()) return;
+
         long now = System.currentTimeMillis();
-        long nowSec = now / 1000L;
 
         boolean decayEnabled = plugin.getConfig().getBoolean(
                 "balance.ultimate.decay.enabled", false
@@ -147,6 +154,16 @@ public class UltimateBarManager {
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
+
+            // Hide bar entirely if no ultimate bound
+            if (!hasUltimateBound(p)) {
+                BossBar bar = bars.get(id);
+                if (bar != null) {
+                    bar.setVisible(false);
+                    bar.removePlayer(p);
+                }
+                continue;
+            }
 
             boolean lockedNow = now < lockoutUntilMs.getOrDefault(id, 0L);
             boolean lockedBefore = wasLockedOut.getOrDefault(id, false);
@@ -162,14 +179,31 @@ public class UltimateBarManager {
 
             if (decayEnabled) {
                 long lastCombat = lastCombatMs.getOrDefault(id, 0L);
-                if (now - lastCombat > 8000) {
+                long startAfterMs = plugin.getConfig().getLong("balance.ultimate.decay.start-after-seconds-out-of-combat", 8L) * 1000L;
+                if (now - lastCombat > startAfterMs) {
+                    double perSec = plugin.getConfig().getDouble("balance.ultimate.decay.decay-per-second-percent", 1.25);
                     double cur = chargePct.getOrDefault(id, 0.0);
-                    chargePct.put(id, Math.max(0.0, cur - 1.25));
+                    chargePct.put(id, Math.max(0.0, cur - perSec));
                 }
             }
 
             updateBar(p);
         }
+    }
+
+    private boolean hasUltimateBound(Player player) {
+        try {
+            PlayerProfile profile = plugin.getProfileManager().getProfile(player);
+            if (profile == null) return false;
+
+            for (String abilityId : profile.getBoundAbilityIds().values()) {
+                if (abilityId == null || abilityId.isBlank()) continue;
+                Ability a = plugin.getAbilityRegistry().getAbility(abilityId);
+                if (a != null && a.getType() == AbilityType.ULTIMATE) return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     private void resetClamp(UUID id) {
@@ -187,6 +221,12 @@ public class UltimateBarManager {
         return bars.computeIfAbsent(player.getUniqueId(), id -> {
             BarColor color = BarColor.BLUE;
             BarStyle style = BarStyle.SOLID;
+
+            String c = plugin.getConfig().getString("balance.ultimate.bossbar.color", "BLUE");
+            String s = plugin.getConfig().getString("balance.ultimate.bossbar.style", "SOLID");
+            try { color = BarColor.valueOf(c.toUpperCase()); } catch (Exception ignored) {}
+            try { style = BarStyle.valueOf(s.toUpperCase()); } catch (Exception ignored) {}
+
             BossBar bar = Bukkit.createBossBar("Ultimate", color, style);
             bar.addPlayer(player);
             return bar;
@@ -194,15 +234,37 @@ public class UltimateBarManager {
     }
 
     private void updateBar(Player player) {
+        if (player == null) return;
+
+        // Only show if ultimate bound
+        if (!hasUltimateBound(player)) {
+            BossBar existing = bars.get(player.getUniqueId());
+            if (existing != null) {
+                existing.setVisible(false);
+                existing.removePlayer(player);
+            }
+            return;
+        }
+
         BossBar bar = ensureBar(player);
+        bar.addPlayer(player);
+
         double pct = chargePct.getOrDefault(player.getUniqueId(), 0.0);
         bar.setProgress(Math.min(1.0, pct / 100.0));
         bar.setVisible(true);
 
         if (pct >= 100.0 && !readySoundPlayed.getOrDefault(player.getUniqueId(), false)) {
             readySoundPlayed.put(player.getUniqueId(), true);
-            player.playSound(player.getLocation(),
-                    Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+
+            String soundKey = plugin.getConfig().getString("balance.ultimate.bossbar.ready-sound", "ENTITY_PLAYER_LEVELUP");
+            float vol = (float) plugin.getConfig().getDouble("balance.ultimate.bossbar.ready-sound-volume", 1.0);
+            float pit = (float) plugin.getConfig().getDouble("balance.ultimate.bossbar.ready-sound-pitch", 1.2);
+
+            try {
+                player.playSound(player.getLocation(), Sound.valueOf(soundKey), vol, pit);
+            } catch (Exception e) {
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+            }
         }
     }
 }

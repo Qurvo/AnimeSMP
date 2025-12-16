@@ -30,6 +30,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
+import com.animesmp.core.combat.UltimateBarManager;
 
 public class AnimeSMPPlugin extends JavaPlugin {
 
@@ -50,6 +51,7 @@ public class AnimeSMPPlugin extends JavaPlugin {
     private DamageCalculator damageCalculator;
     private KillCooldownManager killCooldownManager;
     private StatusEffectManager statusEffectManager;
+    private UltimateBarManager ultimateBarManager;
 
     // Vendors / PD
     private PdStockManager pdStockManager;
@@ -68,6 +70,8 @@ public class AnimeSMPPlugin extends JavaPlugin {
 
     // Daily systems
     private DailyRewardManager dailyRewardManager;
+
+    private com.animesmp.core.tutorial.TutorialManager tutorialManager;
 
     public static AnimeSMPPlugin getInstance() {
         return instance;
@@ -97,6 +101,7 @@ public class AnimeSMPPlugin extends JavaPlugin {
         this.damageCalculator = new DamageCalculator(this);
         this.killCooldownManager = new KillCooldownManager();
         this.statusEffectManager = new StatusEffectManager(this);
+        this.ultimateBarManager = new UltimateBarManager(this);
 
         // Vendors / PD
         this.rotatingVendorManager = new RotatingVendorManager(this); // daily ability vendor
@@ -118,6 +123,11 @@ public class AnimeSMPPlugin extends JavaPlugin {
 
         // Trainer ability mapping (which trainer teaches which abilities)
         this.trainerAbilityManager = new TrainerAbilityManager(this);
+
+        // Tutorial manager
+        this.tutorialManager = new com.animesmp.core.tutorial.TutorialManager(this);
+
+        this.ultimateBarManager.start();
 
         // Commands
         registerCommands();
@@ -143,6 +153,14 @@ public class AnimeSMPPlugin extends JavaPlugin {
         // Daily login rewards + missions
         Bukkit.getPluginManager().registerEvents(new DailyRewardListener(this), this);
         Bukkit.getPluginManager().registerEvents(new DailyMissionListener(this), this);
+
+        // Tutorial (auto-start + step tracking)
+        Bukkit.getPluginManager().registerEvents(
+                new com.animesmp.core.tutorial.TutorialListener(this, tutorialManager), this
+        );
+
+        ultimateBarManager.start();
+
 
         // HUD
         hudManager.start();
@@ -180,6 +198,19 @@ public class AnimeSMPPlugin extends JavaPlugin {
             PdAdminCommand admin = new PdAdminCommand(this);
             pdAdminCmd.setExecutor(admin);
             pdAdminCmd.setTabCompleter(admin);
+        }
+
+        // REMOVED: /loadout system
+        // PluginCommand loadoutCmd = getCommand("loadout");
+
+        PluginCommand tutorialCmd = getCommand("tutorial");
+        if (tutorialCmd != null) tutorialCmd.setExecutor(new com.animesmp.core.commands.TutorialCommand(this));
+
+        PluginCommand abLabelCmd = getCommand("ablabel");
+        if (abLabelCmd != null) {
+            com.animesmp.core.commands.AbLabelCommand abl = new com.animesmp.core.commands.AbLabelCommand(this);
+            abLabelCmd.setExecutor(abl);
+            abLabelCmd.setTabCompleter(abl);
         }
 
         // /mission – view daily missions & progress
@@ -260,7 +291,7 @@ public class AnimeSMPPlugin extends JavaPlugin {
             pdTokensCmd.setTabCompleter(pc);
         }
 
-        // /shopnpc – create vendor NPCs (ability vendor, training vendor, PD vendor, etc.)
+        // /shopnpc – create vendor NPCs
         PluginCommand shopNpcCmd = getCommand("shopnpc");
         if (shopNpcCmd != null) {
             ShopNpcCommand snc = new ShopNpcCommand(this);
@@ -327,7 +358,6 @@ public class AnimeSMPPlugin extends JavaPlugin {
     }
 
     // Getters
-
     public PlayerProfileManager getProfileManager() { return profileManager; }
     public StatsManager getStatsManager() { return statsManager; }
     public StaminaManager getStaminaManager() { return staminaManager; }
@@ -341,7 +371,6 @@ public class AnimeSMPPlugin extends JavaPlugin {
     public GlobalCooldownManager getGlobalCooldownManager() { return globalCooldownManager; }
     public DamageCalculator getDamageCalculator() { return damageCalculator; }
     public KillCooldownManager getKillCooldownManager() { return killCooldownManager; }
-
     public StatusEffectManager getStatusEffectManager() { return statusEffectManager; }
 
     public TrainerQuestManager getTrainerQuestManager() { return trainerQuestManager; }
@@ -353,7 +382,9 @@ public class AnimeSMPPlugin extends JavaPlugin {
     public RotatingVendorManager getRotatingVendorManager() { return rotatingVendorManager; }
     public PdStockManager getPdStockManager() { return pdStockManager; }
 
-    public DailyRewardManager getDailyRewardManager() { return dailyRewardManager; }
+    public com.animesmp.core.tutorial.TutorialManager getTutorialManager() { return tutorialManager; }
 
+    public UltimateBarManager getUltimateBarManager() { return ultimateBarManager; }
+    public DailyRewardManager getDailyRewardManager() { return dailyRewardManager; }
     public TrainerAbilityManager getTrainerAbilityManager() { return trainerAbilityManager; }
 }

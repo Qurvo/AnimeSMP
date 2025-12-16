@@ -1,7 +1,50 @@
-﻿target/
+﻿# ===============================
+# Java / Maven
+# ===============================
+target/
+*.class
+*.jar
+*.war
+*.ear
 *.log
-.DS_Store
+
+# ===============================
+# IntelliJ IDEA
+# ===============================
 .idea/
 *.iml
-.gradle/
-build/
+*.iws
+*.ipr
+out/
+
+# ===============================
+# VS Code
+# ===============================
+.vscode/
+
+# ===============================
+# OS files
+# ===============================
+.DS_Store
+Thumbs.db
+
+# ===============================
+# Minecraft server junk
+# ===============================
+logs/
+cache/
+world/
+world_nether/
+world_the_end/
+plugins/
+usercache.json
+banned-players.json
+banned-ips.json
+ops.json
+whitelist.json
+
+# ===============================
+# Runtime / temp
+# ===============================
+*.tmp
+*.bak
