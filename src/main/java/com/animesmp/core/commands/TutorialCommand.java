@@ -1,6 +1,7 @@
 package com.animesmp.core.commands;
 
 import com.animesmp.core.AnimeSMPPlugin;
+import com.animesmp.core.tutorial.TutorialManager;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -18,17 +19,26 @@ public class TutorialCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Players only.");
+            sender.sendMessage(ChatColor.RED + "This command can only be used in-game.");
             return true;
         }
 
-        Player player = (Player) sender;
+        Player p = (Player) sender;
 
-        boolean force = args.length > 0 && args[0].equalsIgnoreCase("force");
+        TutorialManager tm = plugin.getTutorialManager();
+        if (tm == null) {
+            p.sendMessage(ChatColor.RED + "Tutorial system is not loaded.");
+            return true;
+        }
 
-        plugin.getTutorialManager().start(player, force);
-        player.sendMessage(ChatColor.GREEN + "Tutorial started" + (force ? " (forced)" : "") + ".");
+        if (!plugin.getConfig().getBoolean("tutorial.enabled", true)) {
+            p.sendMessage(ChatColor.RED + "Tutorial is disabled in config.yml (tutorial.enabled=false).");
+            return true;
+        }
 
+        // Force start (so /tutorial always does something)
+        tm.start(p, true);
+        p.sendMessage(ChatColor.GREEN + "Tutorial started.");
         return true;
     }
 }

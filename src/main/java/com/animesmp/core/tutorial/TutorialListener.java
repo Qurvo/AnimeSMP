@@ -26,14 +26,18 @@ public class TutorialListener implements Listener {
     @EventHandler
     public void onCommand(PlayerCommandPreprocessEvent e) {
         Player p = e.getPlayer();
-        String msg = e.getMessage(); // e.g. "/skills", "/skills something"
+        String msg = e.getMessage();
         tutorial.handleCommandStep(p, msg);
 
-        // Also detect bind/cast usage regardless of step (manager will decide)
+        // Also detect bind/cast usage regardless of step (manager decides)
         String lower = msg.toLowerCase();
-        if (lower.startsWith("/bind") || lower.startsWith("/cast1") || lower.startsWith("/cast2")
-                || lower.startsWith("/cast3") || lower.startsWith("/cast4") || lower.startsWith("/cast5")) {
-            tutorial.handleBindOrCastUsed(p);
+        if (lower.startsWith("/bind")
+                || lower.startsWith("/cast1")
+                || lower.startsWith("/cast2")
+                || lower.startsWith("/cast3")
+                || lower.startsWith("/cast4")
+                || lower.startsWith("/cast5")) {
+            tutorial.handleBindOrCastUsed(p, lower);
         }
     }
 }

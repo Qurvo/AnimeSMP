@@ -18,7 +18,6 @@ import java.util.List;
 public class PdShopGuiManager {
 
     private final AnimeSMPPlugin plugin;
-
     private static final String PD_MENU_TITLE = ChatColor.DARK_RED + "Perma-Death Vendor";
 
     public PdShopGuiManager(AnimeSMPPlugin plugin) {
@@ -62,15 +61,14 @@ public class PdShopGuiManager {
                 }
 
                 inv.setItem(slot, item);
-
                 slot++;
                 if ((slot + 1) % 9 == 0) slot += 2;
             }
 
             // Info item (includes next refresh)
             inv.setItem(49, buildInfoItem(player));
-
             player.openInventory(inv);
+
         } catch (Throwable t) {
             plugin.getLogger().severe("PdShopGuiManager.open() crashed for " + (player != null ? player.getName() : "null"));
             t.printStackTrace();
@@ -86,12 +84,11 @@ public class PdShopGuiManager {
 
             PlayerProfile profile = plugin.getProfileManager().getProfile(player);
             int tokens = profile == null ? 0 : profile.getPdTokens();
-
             String refresh = plugin.getPdStockManager().getFormattedTimeRemaining();
 
             im.setLore(List.of(
-                    ChatColor.GRAY + "Epics appear more often and are cheaper.",
-                    ChatColor.GRAY + "Legendaries are rarer and cost more.",
+                    ChatColor.GRAY + "Stock is always " + ChatColor.WHITE + "4 Epics" + ChatColor.GRAY + " and " + ChatColor.WHITE + "4 Legendaries" + ChatColor.GRAY + ".",
+                    ChatColor.GRAY + "Global stock per ability is " + ChatColor.WHITE + "2" + ChatColor.GRAY + ".",
                     "",
                     ChatColor.GRAY + "Next refresh in: " + ChatColor.WHITE + refresh,
                     "",
@@ -110,7 +107,6 @@ public class PdShopGuiManager {
             if (profile == null) return;
 
             int cost = safeCost(ability);
-
             if (safeRemaining(ability) <= 0) {
                 player.sendMessage(ChatColor.RED + "This ability is out of stock.");
                 return;
@@ -130,55 +126,54 @@ public class PdShopGuiManager {
 
             try {
                 player.getInventory().addItem(plugin.getAbilityManager().createAbilityScroll(ability, 1));
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
+
+            plugin.getProfileManager().saveProfile(profile);
 
         } catch (Throwable t) {
             plugin.getLogger().severe("PdShopGuiManager.handlePurchase() crashed for " + (player != null ? player.getName() : "null"));
             t.printStackTrace();
-            if (player != null) player.sendMessage(ChatColor.RED + "Purchase failed due to an internal error. Check console.");
+            if (player != null) player.sendMessage(ChatColor.RED + "Purchase failed due to an internal error.");
         }
     }
 
+    // ------------------ SAFE WRAPPERS (keep your reflection compatibility) ------------------
+
     private int safeCost(Ability a) {
-        try { return plugin.getPdStockManager().getCostFor(a); }
-        catch (Throwable t) { return 10; }
+        try {
+            return plugin.getPdStockManager().getCostFor(a);
+        } catch (Throwable ignored) {
+            return 0;
+        }
     }
 
     private int safeRemaining(Ability a) {
-        try { return plugin.getPdStockManager().getRemaining(a); }
-        catch (Throwable t) { return 0; }
+        try {
+            return plugin.getPdStockManager().getRemaining(a);
+        } catch (Throwable ignored) {
+            return 0;
+        }
     }
 
     private void safeDecrement(Ability a) {
-        try { plugin.getPdStockManager().decrementStock(a); }
-        catch (Throwable ignored) {}
+        try {
+            plugin.getPdStockManager().decrementStock(a);
+        } catch (Throwable ignored) {
+        }
     }
 
     private String safeAbilityName(Ability a) {
         try {
-            Method m = a.getClass().getMethod("getDisplayName");
-            Object r = m.invoke(a);
-            if (r != null) return r.toString();
-        } catch (Throwable ignored) {}
-        try {
-            Method m = a.getClass().getMethod("getId");
-            Object r = m.invoke(a);
-            if (r != null) return r.toString();
-        } catch (Throwable ignored) {}
-        return "Ability";
+            Method m = a.getClass().getMethod("getName");
+            Object o = m.invoke(a);
+            return o == null ? a.getId() : String.valueOf(o);
+        } catch (Throwable ignored) {
+            return a.getId();
+        }
     }
 
     private String safeAbilitySummary(Ability a) {
-        for (String method : new String[]{"getShortDescription", "getDesc"}) {
-            try {
-                Method m = a.getClass().getMethod(method);
-                Object r = m.invoke(a);
-                if (r != null) {
-                    String s = r.toString().trim();
-                    if (!s.isEmpty()) return s;
-                }
-            } catch (Throwable ignored) {}
-        }
-        return safeAbilityName(a);
+        return safeAbilityName(a) + " (" + (a.getTier() != null ? a.getTier().name() : "UNKNOWN") + ")";
     }
 }
